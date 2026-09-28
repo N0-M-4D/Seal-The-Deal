@@ -39,5 +39,12 @@ Deleting means removing it from both. If the two disagree, the repo copy wins.
 
 ## Validation
 
-No compile-check tooling exists in this repo yet. When one is added, document it here.
-Per AGENTS.md §8, never report Play Mode, multiplayer or Steam results you did not observe.
+Compile check: open the project headlessly and grep the log. Takes a minute or two with a warm `Library/`. Only when no Editor already has this project open.
+
+```bash
+unity run "<repo root>" --timeout 900 --no-banner -- -logFile "<scratch>/compile.log"; grep -c "error CS" "<scratch>/compile.log"
+```
+
+A count of 0 means it compiled. That is all it proves: per AGENTS.md §8, never report Play Mode, multiplayer or Steam results you did not observe.
+
+The one-off editor script [PackageInstaller.cs](Assets/_Project/Editor/ProjectBootstrap/PackageInstaller.cs) is how the pinned netcode packages were added; it only runs when invoked from the shell and is kept so a future package change follows the same route.
