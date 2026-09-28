@@ -1,6 +1,7 @@
 using CloseTheDeal.Combat;
 using CloseTheDeal.Net;
 using CloseTheDeal.Player;
+using CloseTheDeal.Tower;
 using CloseTheDeal.UI;
 using FishNet.Component.Spawning;
 using FishNet.Managing;
@@ -58,6 +59,7 @@ namespace CloseTheDeal.Editor.Greybox
             Transform spawnA = EnsureSpawn("SpawnA", new Vector3(-2f, 0.1f, 0f));
             Transform spawnB = EnsureSpawn("SpawnB", new Vector3(2f, 0.1f, 0f));
             EnsureNetworkManager(playerPrefab, spawnA, spawnB);
+            GreyboxTowerSetup.Ensure();
             SteamLobby lobby = EnsureSteam();
             EnsureLobbyPanel(lobby);
 
@@ -275,18 +277,31 @@ namespace CloseTheDeal.Editor.Greybox
                 SetBool(serialized, "_peerToPeer", true);
                 SetInt(serialized, "_maximumClients", 4);
                 serialized.ApplyModifiedPropertiesWithoutUndo();
-
-                var spawner = go.AddComponent<PlayerSpawner>();
-                spawner.Spawns = new[] { spawnA, spawnB };
             }
 
-            // Always re-point the spawner, so a rebuilt prefab is picked up.
-            manager.GetComponent<PlayerSpawner>().SetPlayerPrefab(playerPrefab);
+            EnsureTeamSpawner(manager.gameObject, playerPrefab, spawnA, spawnB);
             EnsureTimeManager(manager.gameObject);
 
             // Direct connection on this PC for local test mode; SteamLobby picks the transport at runtime.
             if (manager.GetComponent<FishNet.Transporting.Tugboat.Tugboat>() == null)
                 manager.gameObject.AddComponent<FishNet.Transporting.Tugboat.Tugboat>();
+        }
+
+        /// <summary>Our team-aware spawner replaces FishNet's PlayerSpawner; the prefab is always re-pointed so a rebuilt one is picked up.</summary>
+        static void EnsureTeamSpawner(GameObject managerObject, NetworkObject playerPrefab, Transform spawnA, Transform spawnB)
+        {
+            PlayerSpawner old = managerObject.GetComponent<PlayerSpawner>();
+            if (old != null)
+                Object.DestroyImmediate(old);
+
+            TeamSpawner spawner = managerObject.GetComponent<TeamSpawner>();
+            if (spawner == null)
+            {
+                spawner = managerObject.AddComponent<TeamSpawner>();
+                spawner.FallbackSpawns = new[] { spawnA, spawnB };
+            }
+
+            spawner.SetPlayerPrefab(playerPrefab);
         }
 
         /// <summary>FishNet must drive physics itself for rigidbody prediction; 60 ticks a second.</summary>

@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 156a396c472fa714690fe93d1bbb9a1e, type: 3}
+  m_Name: DefaultTower
+  m_EditorClassIdentifier: Assembly-CSharp::CloseTheDeal.Tower.TowerProfile
+  RandomFloors: 8
+  CheckpointEvery: 3
+  SharedSeed: 1
+  FloorHeight: 4
+  Width: 20
+  MainDepth: 10
+  SpineDepth: 4
+  Gap: 12
+  Lobby: {fileID: 7418149380688390105, guid: 396cf11d9bfcaf540abef205ac924111, type: 3}
+  Checkpoint: {fileID: 7459836500273588864, guid: 3dac657304ddca44ebd5f57161291af4, type: 3}
+  Boardroom: {fileID: 531609693189339637, guid: cf6065e0f0aaab344a0a77139d146c32, type: 3}
+  Roof: {fileID: 9169779558375202598, guid: e3f198fcb5c6b5f48a85b5268d958aaa, type: 3}
+  Offices:
+  - {fileID: 2917354513455306228, guid: 987e61f12e6082949958a8a9f4b75b89, type: 3}
+  - {fileID: 2223829584901935874, guid: 435e25b869d8c93449aa0be24a754296, type: 3}
+  - {fileID: 4355485836248636666, guid: 775c276526ac9e1418f1de9b52387c22, type: 3}
