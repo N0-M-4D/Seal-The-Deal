@@ -25,7 +25,7 @@ be live for 14+ days; allow 7 days for each review.
 1. ~~Choose the netcode stack.~~ FishNet + FishySteamworks (see the GDD).
 2. ~~Create the Unity 6 project in this folder.~~ Done: Unity 6000.4.8f1, URP.
 3. ~~Get a 2-player Steam lobby working in a greybox scene.~~ Built; see [docs/systems/NETCODE.md](docs/systems/NETCODE.md). Needs its first two-PC test.
-4. Host-authoritative movement, climbing and knockback in the greybox.
+4. ~~Host-authoritative movement, climbing and knockback in the greybox.~~ Built; see [docs/systems/PLAYER_MOVEMENT.md](docs/systems/PLAYER_MOVEMENT.md). Needs its first play.
 5. Prove prop and ragdoll sync early. It's the biggest technical risk.
 
 ## Working on it

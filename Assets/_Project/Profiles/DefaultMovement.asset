@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7b79ea216fff1f45943dba3a0329d64, type: 3}
+  m_Name: DefaultMovement
+  m_EditorClassIdentifier: Assembly-CSharp::CloseTheDeal.Player.MovementProfile
+  WalkSpeed: 6
+  SprintSpeed: 9
+  GroundAcceleration: 45
+  GroundBraking: 60
+  KnockedBraking: 15
+  AirAcceleration: 12
+  JumpHeight: 1.3
+  AirGravityMultiplier: 2
+  MaxLedgeHeight: 1.6
+  MinLedgeHeight: 0.4
+  LedgeReach: 0.7
+  MantleDuration: 0.35
+  GroundProbe: 0.1

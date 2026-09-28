@@ -1,15 +1,17 @@
+using CloseTheDeal.Combat;
 using CloseTheDeal.Net;
 using CloseTheDeal.Player;
 using CloseTheDeal.UI;
 using FishNet.Component.Spawning;
-using FishNet.Component.Transforming;
 using FishNet.Managing;
+using FishNet.Managing.Timing;
 using FishNet.Managing.Transporting;
 using FishNet.Object;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -17,15 +19,28 @@ using UnityEngine.UI;
 namespace CloseTheDeal.Editor.Greybox
 {
     /// <summary>
-    /// Builds the greybox lobby scene and the player prefab from a menu item.
-    /// Only adds what is missing: anything already in the scene or on disk is left exactly
-    /// as it is, so re-running it never destroys hand-placed work.
+    /// Builds the greybox scene, the player prefab and the tuning assets from menu items.
+    /// "Set Up Scene" only adds what is missing and never rebuilds anything already there.
+    /// "Rebuild Player Prefab" is the one deliberate overwrite, kept on its own menu item.
     /// </summary>
     public static class GreyboxSceneSetup
     {
         const string ScenePath = "Assets/_Project/Scenes/Greybox.unity";
         const string PrefabFolder = "Assets/_Project/Prefabs";
         const string PlayerPrefabPath = PrefabFolder + "/Player.prefab";
+        const string ProfileFolder = "Assets/_Project/Profiles";
+        const string MovementProfilePath = ProfileFolder + "/DefaultMovement.asset";
+        const string BlastProfilePath = ProfileFolder + "/TestBlast.asset";
+        const string PhysicsFolder = "Assets/_Project/Physics";
+        const string PlayerPhysicsMaterialPath = PhysicsFolder + "/Frictionless.physicsMaterial";
+        const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+        const string PlayerLayerName = "Player";
+        const int PlayerLayer = 6;
+        const int TickRate = 60;
+
+        const float BodyHeight = 1.8f;
+        const float BodyRadius = 0.35f;
+        const float BodyMass = 80f;
 
         [MenuItem("Close the Deal/Greybox/Set Up Scene")]
         public static void SetUpScene()
@@ -34,11 +49,13 @@ namespace CloseTheDeal.Editor.Greybox
             if (scene.path != ScenePath)
                 scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
+            EnsurePlayerLayer();
             NetworkObject playerPrefab = EnsurePlayerPrefab();
 
             EnsureFloorAndCamera();
-            Transform spawnA = EnsureSpawn("SpawnA", new Vector3(-2f, 1.1f, 0f));
-            Transform spawnB = EnsureSpawn("SpawnB", new Vector3(2f, 1.1f, 0f));
+            EnsureOrbitCamera();
+            Transform spawnA = EnsureSpawn("SpawnA", new Vector3(-2f, 0.1f, 0f));
+            Transform spawnB = EnsureSpawn("SpawnB", new Vector3(2f, 0.1f, 0f));
             EnsureNetworkManager(playerPrefab, spawnA, spawnB);
             SteamLobby lobby = EnsureSteam();
             EnsureLobbyPanel(lobby);
@@ -48,34 +65,127 @@ namespace CloseTheDeal.Editor.Greybox
             Debug.Log("[Greybox] Scene set up and saved.");
         }
 
+        [MenuItem("Close the Deal/Greybox/Rebuild Player Prefab")]
+        public static void RebuildPlayerPrefab()
+        {
+            EnsurePlayerLayer();
+            BuildPlayerPrefab();
+            SetUpScene();
+        }
+
         // ---- Player prefab -------------------------------------------------------------------
 
         static NetworkObject EnsurePlayerPrefab()
         {
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
-            if (existing != null)
-                return existing.GetComponent<NetworkObject>();
+            if (existing == null)
+                return BuildPlayerPrefab();
 
-            if (!AssetDatabase.IsValidFolder(PrefabFolder))
-                AssetDatabase.CreateFolder("Assets/_Project", "Prefabs");
+            if (existing.GetComponent<PlayerMotor>() == null)
+                Debug.LogWarning("[Greybox] Player.prefab is from before PlayerMotor. Run Close the Deal > Greybox > Rebuild Player Prefab.");
 
-            GameObject temp = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            temp.name = "Player";
-            // CharacterController brings its own capsule; the primitive's collider would double up.
-            Object.DestroyImmediate(temp.GetComponent<CapsuleCollider>());
+            return existing.GetComponent<NetworkObject>();
+        }
 
-            var controller = temp.AddComponent<CharacterController>();
-            controller.height = 2f;
-            controller.radius = 0.5f;
+        /// <summary>Writes Player.prefab from scratch. Saving over the existing path keeps its GUID, so scene references survive.</summary>
+        static NetworkObject BuildPlayerPrefab()
+        {
+            EnsureFolder("Assets/_Project", "Prefabs");
+            MovementProfile movement = EnsureAsset<MovementProfile>(ProfileFolder, MovementProfilePath);
+            BlastProfile blast = EnsureAsset<BlastProfile>(ProfileFolder, BlastProfilePath);
+            PhysicsMaterial frictionless = EnsureFrictionlessMaterial();
+            var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
+            if (actions == null)
+                Debug.LogError("[Greybox] Input actions asset missing at " + InputActionsPath);
 
-            temp.AddComponent<NetworkObject>();
-            temp.AddComponent<NetworkTransform>();
-            temp.AddComponent<GreyboxMover>();
+            var root = new GameObject("Player") { layer = PlayerLayer };
 
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(temp, PlayerPrefabPath);
-            Object.DestroyImmediate(temp);
-            Debug.Log("[Greybox] Created " + PlayerPrefabPath);
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.height = BodyHeight;
+            capsule.radius = BodyRadius;
+            capsule.center = new Vector3(0f, BodyHeight * 0.5f, 0f);
+            capsule.material = frictionless;
+
+            var body = root.AddComponent<Rigidbody>();
+            body.mass = BodyMass;
+            body.linearDamping = 0f;
+            body.angularDamping = 0f;
+            body.constraints = RigidbodyConstraints.FreezeRotation;
+            body.interpolation = RigidbodyInterpolation.None;
+            body.collisionDetectionMode = CollisionDetectionMode.Continuous;
+
+            Transform graphics = BuildGraphics(root.transform);
+
+            var networkObject = root.AddComponent<NetworkObject>();
+            var input = root.AddComponent<PlayerInputReader>();
+            var motor = root.AddComponent<PlayerMotor>();
+
+            var serializedNetworkObject = new SerializedObject(networkObject);
+            SetBool(serializedNetworkObject, "_enablePrediction", true);
+            SetEnum(serializedNetworkObject, "_predictionType", 1); // Rigidbody
+            SetReference(serializedNetworkObject, "_graphicalObject", graphics);
+            serializedNetworkObject.ApplyModifiedPropertiesWithoutUndo();
+
+            var serializedInput = new SerializedObject(input);
+            SetReference(serializedInput, "_actions", actions);
+            serializedInput.ApplyModifiedPropertiesWithoutUndo();
+
+            var serializedMotor = new SerializedObject(motor);
+            SetReference(serializedMotor, "_profile", movement);
+            SetReference(serializedMotor, "_blast", blast);
+            SetInt(serializedMotor, "_groundMask", ~(1 << PlayerLayer));
+            SetInt(serializedMotor, "_playerMask", 1 << PlayerLayer);
+            SetReference(serializedMotor, "_cameraTarget", graphics);
+            serializedMotor.ApplyModifiedPropertiesWithoutUndo();
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
+            Object.DestroyImmediate(root);
+            Debug.Log("[Greybox] Wrote " + PlayerPrefabPath);
             return prefab.GetComponent<NetworkObject>();
+        }
+
+        /// <summary>A capsule body with a small block for a nose, so facing reads in greybox.</summary>
+        static Transform BuildGraphics(Transform root)
+        {
+            var graphics = new GameObject("Graphics") { layer = PlayerLayer };
+            graphics.transform.SetParent(root, false);
+
+            GameObject capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            capsule.name = "Body";
+            capsule.layer = PlayerLayer;
+            Object.DestroyImmediate(capsule.GetComponent<Collider>());
+            capsule.transform.SetParent(graphics.transform, false);
+            capsule.transform.localPosition = new Vector3(0f, BodyHeight * 0.5f, 0f);
+            capsule.transform.localScale = new Vector3(BodyRadius * 2f, BodyHeight * 0.5f, BodyRadius * 2f);
+
+            GameObject nose = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            nose.name = "Nose";
+            nose.layer = PlayerLayer;
+            Object.DestroyImmediate(nose.GetComponent<Collider>());
+            nose.transform.SetParent(graphics.transform, false);
+            nose.transform.localPosition = new Vector3(0f, BodyHeight * 0.8f, BodyRadius + 0.05f);
+            nose.transform.localScale = new Vector3(0.15f, 0.15f, 0.2f);
+
+            return graphics.transform;
+        }
+
+        static PhysicsMaterial EnsureFrictionlessMaterial()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(PlayerPhysicsMaterialPath);
+            if (existing != null)
+                return existing;
+
+            EnsureFolder("Assets/_Project", "Physics");
+            var material = new PhysicsMaterial("Frictionless")
+            {
+                dynamicFriction = 0f,
+                staticFriction = 0f,
+                bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum,
+                bounceCombine = PhysicsMaterialCombine.Minimum
+            };
+            AssetDatabase.CreateAsset(material, PlayerPhysicsMaterialPath);
+            return material;
         }
 
         // ---- World ---------------------------------------------------------------------------
@@ -98,6 +208,13 @@ namespace CloseTheDeal.Editor.Greybox
             }
         }
 
+        static void EnsureOrbitCamera()
+        {
+            Camera cam = Camera.main;
+            if (cam != null && cam.GetComponent<ThirdPersonCamera>() == null)
+                cam.gameObject.AddComponent<ThirdPersonCamera>();
+        }
+
         static Transform EnsureSpawn(string name, Vector3 position)
         {
             GameObject found = GameObject.Find(name);
@@ -113,30 +230,47 @@ namespace CloseTheDeal.Editor.Greybox
 
         static void EnsureNetworkManager(NetworkObject playerPrefab, Transform spawnA, Transform spawnB)
         {
-            if (Object.FindFirstObjectByType<NetworkManager>() != null)
-                return;
+            NetworkManager manager = Object.FindAnyObjectByType<NetworkManager>();
+            if (manager == null)
+            {
+                var go = new GameObject("NetworkManager");
+                manager = go.AddComponent<NetworkManager>();
 
-            var go = new GameObject("NetworkManager");
-            go.AddComponent<NetworkManager>();
+                var transportManager = go.AddComponent<TransportManager>();
+                var transport = go.AddComponent<global::FishySteamworks.FishySteamworks>();
+                transportManager.Transport = transport;
 
-            var transportManager = go.AddComponent<TransportManager>();
-            var transport = go.AddComponent<global::FishySteamworks.FishySteamworks>();
-            transportManager.Transport = transport;
+                // Steam relays traffic between friends over the peer-to-peer socket, not an IP socket.
+                var serialized = new SerializedObject(transport);
+                SetBool(serialized, "_peerToPeer", true);
+                SetInt(serialized, "_maximumClients", 4);
+                serialized.ApplyModifiedPropertiesWithoutUndo();
 
-            // Steam relays traffic between friends over the peer-to-peer socket, not an IP socket.
-            var serialized = new SerializedObject(transport);
-            SetBool(serialized, "_peerToPeer", true);
-            SetInt(serialized, "_maximumClients", 4);
+                var spawner = go.AddComponent<PlayerSpawner>();
+                spawner.Spawns = new[] { spawnA, spawnB };
+            }
+
+            // Always re-point the spawner, so a rebuilt prefab is picked up.
+            manager.GetComponent<PlayerSpawner>().SetPlayerPrefab(playerPrefab);
+            EnsureTimeManager(manager.gameObject);
+        }
+
+        /// <summary>FishNet must drive physics itself for rigidbody prediction; 60 ticks a second.</summary>
+        static void EnsureTimeManager(GameObject managerObject)
+        {
+            TimeManager timeManager = managerObject.GetComponent<TimeManager>();
+            if (timeManager == null)
+                timeManager = managerObject.AddComponent<TimeManager>();
+
+            var serialized = new SerializedObject(timeManager);
+            SetEnum(serialized, "_physicsMode", (int)PhysicsMode.TimeManager);
+            SetInt(serialized, "_tickRate", TickRate);
             serialized.ApplyModifiedPropertiesWithoutUndo();
-
-            var spawner = go.AddComponent<PlayerSpawner>();
-            spawner.SetPlayerPrefab(playerPrefab);
-            spawner.Spawns = new[] { spawnA, spawnB };
         }
 
         static SteamLobby EnsureSteam()
         {
-            SteamLobby existing = Object.FindFirstObjectByType<SteamLobby>();
+            SteamLobby existing = Object.FindAnyObjectByType<SteamLobby>();
             if (existing != null)
                 return existing;
 
@@ -145,14 +279,35 @@ namespace CloseTheDeal.Editor.Greybox
             return go.AddComponent<SteamLobby>();
         }
 
+        // ---- Project settings ----------------------------------------------------------------
+
+        static void EnsurePlayerLayer()
+        {
+            if (LayerMask.LayerToName(PlayerLayer) == PlayerLayerName)
+                return;
+
+            var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            SerializedProperty layers = tagManager.FindProperty("layers");
+            SerializedProperty slot = layers.GetArrayElementAtIndex(PlayerLayer);
+            if (!string.IsNullOrEmpty(slot.stringValue) && slot.stringValue != PlayerLayerName)
+            {
+                Debug.LogError($"[Greybox] Layer {PlayerLayer} is already '{slot.stringValue}'; expected it free for '{PlayerLayerName}'.");
+                return;
+            }
+
+            slot.stringValue = PlayerLayerName;
+            tagManager.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log($"[Greybox] Named layer {PlayerLayer} '{PlayerLayerName}'.");
+        }
+
         // ---- UI ------------------------------------------------------------------------------
 
         static void EnsureLobbyPanel(SteamLobby lobby)
         {
-            if (Object.FindFirstObjectByType<LobbyPanel>() != null)
+            if (Object.FindAnyObjectByType<LobbyPanel>() != null)
                 return;
 
-            if (Object.FindFirstObjectByType<EventSystem>() == null)
+            if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem");
                 es.AddComponent<EventSystem>();
@@ -177,12 +332,12 @@ namespace CloseTheDeal.Editor.Greybox
 
             var panel = canvasGo.AddComponent<LobbyPanel>();
             var serialized = new SerializedObject(panel);
-            serialized.FindProperty("_lobby").objectReferenceValue = lobby;
-            serialized.FindProperty("_hostButton").objectReferenceValue = host;
-            serialized.FindProperty("_inviteButton").objectReferenceValue = invite;
-            serialized.FindProperty("_leaveButton").objectReferenceValue = leave;
-            serialized.FindProperty("_statusText").objectReferenceValue = status;
-            serialized.FindProperty("_playersText").objectReferenceValue = players;
+            SetReference(serialized, "_lobby", lobby);
+            SetReference(serialized, "_hostButton", host);
+            SetReference(serialized, "_inviteButton", invite);
+            SetReference(serialized, "_leaveButton", leave);
+            SetReference(serialized, "_statusText", status);
+            SetReference(serialized, "_playersText", players);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -231,18 +386,57 @@ namespace CloseTheDeal.Editor.Greybox
             rect.sizeDelta = size;
         }
 
+        // ---- Asset and serialized-field helpers ----------------------------------------------
+
+        static T EnsureAsset<T>(string folder, string path) where T : ScriptableObject
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (existing != null)
+                return existing;
+
+            EnsureFolder("Assets/_Project", folder.Substring(folder.LastIndexOf('/') + 1));
+            var asset = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(asset, path);
+            Debug.Log("[Greybox] Created " + path);
+            return asset;
+        }
+
+        static void EnsureFolder(string parent, string name)
+        {
+            if (!AssetDatabase.IsValidFolder(parent + "/" + name))
+                AssetDatabase.CreateFolder(parent, name);
+        }
+
         static void SetBool(SerializedObject so, string field, bool value)
         {
-            SerializedProperty p = so.FindProperty(field);
-            if (p == null) Debug.LogWarning($"[Greybox] FishySteamworks has no field '{field}'; set it by hand in the Inspector.");
-            else p.boolValue = value;
+            SerializedProperty p = Find(so, field);
+            if (p != null) p.boolValue = value;
         }
 
         static void SetInt(SerializedObject so, string field, int value)
         {
+            SerializedProperty p = Find(so, field);
+            if (p != null) p.intValue = value;
+        }
+
+        static void SetEnum(SerializedObject so, string field, int index)
+        {
+            SerializedProperty p = Find(so, field);
+            if (p != null) p.enumValueIndex = index;
+        }
+
+        static void SetReference(SerializedObject so, string field, Object value)
+        {
+            SerializedProperty p = Find(so, field);
+            if (p != null) p.objectReferenceValue = value;
+        }
+
+        static SerializedProperty Find(SerializedObject so, string field)
+        {
             SerializedProperty p = so.FindProperty(field);
-            if (p == null) Debug.LogWarning($"[Greybox] FishySteamworks has no field '{field}'; set it by hand in the Inspector.");
-            else p.intValue = value;
+            if (p == null)
+                Debug.LogWarning($"[Greybox] {so.targetObject.GetType().Name} has no field '{field}'; set it by hand in the Inspector.");
+            return p;
         }
     }
 }

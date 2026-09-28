@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 847466df86d0a2d418fec79f42e6fbac, type: 3}
+  m_Name: TestBlast
+  m_EditorClassIdentifier: Assembly-CSharp::CloseTheDeal.Combat.BlastProfile
+  Range: 30
+  Radius: 3
+  Speed: 12
+  UpBias: 0.6
+  EdgeStrength: 0.4
+  ControlLossSeconds: 0.7
+  PushHeight: 0.9
+  EyeHeight: 1.6

@@ -163,6 +163,8 @@ Steam rules: no release until 30 days after the app fee is paid; the Coming Soon
 - [ ] Confirm final name (working title: Close the Deal)
 - [x] ~~FishNet or Netcode for GameObjects + Steam transport?~~ FishNet + FishySteamworks.
 - [ ] Are the stairs in the service spine visible to the rival, or hidden like the WC and UTIL?
+- [ ] First-person or third-person camera? The greybox uses third-person over the shoulder so knockback and ragdolls can be seen.
+- [ ] Does "climbing" mean more than mantling ledges (ladders, pipes, the outside of the building)?
 - [ ] Same seed for both buildings, or different layouts with balancing?
 - [ ] How many floors per run, and how long should a run take (target 10–15 min?)
 - [ ] Is respawn on death at the last checkpoint, or on the same floor after a delay?
