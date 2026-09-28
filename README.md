@@ -1,41 +1,31 @@
-# TowerRace (working title)
+# Close the Deal (working title)
 
-A "friend slop" multiplayer tower-climbing race for 2–4 players, built in Unity 6.
-Target: Steam Early Access, **Thu 29 Oct 2026** (hard deadline).
+Two rival companies race up two skyscrapers side by side, shooting at each other
+through the windows. The first team to reach the roof wins.
 
-## Core game
+- **Genre:** co-op/PvP friend-slop, 2v2 at launch, short replayable runs.
+- **Engine:** Unity 6, host-authoritative peer-to-peer over Steam. No dedicated servers.
+- **Release:** Steam Early Access, **Thu 29 Oct 2026**.
 
-- 2–4 players race up one tower.
-- Players disrupt each other with knockback and disruption tools: blast gun,
-  grapple, platform breaker. No kill weapons.
-- Destruction uses pre-broken panels, host-authoritative.
-- Short rounds, checkpoints or a height floor, catch-up for last place.
+The full design is in [docs/GDD.md](docs/GDD.md).
 
-## Tech
+## Key dates
 
-- Unity 6.
-- Host-authoritative P2P over Steam. No dedicated servers.
-- Netcode: FishNet or Netcode for GameObjects + Steam transport. **Decision pending; see below.**
+| Date | Milestone |
+|---|---|
+| 7 Oct | **Submit store page.** Cannot slip: it starts the 14-day Coming Soon clock. |
+| ~20 Oct | Submit build for review. |
+| 29 Oct | Early Access release. |
 
-## Schedule
-
-| Week | Ends | Goals |
-|---|---|---|
-| 1 | Thu 1 Oct | Networked movement, climbing and synced knockback in a greybox. Lock a simple art style. |
-| 2 | ~Wed 7 Oct | Tower, 3 tools, destructible panels. Store page screenshots. **Submit store page ~7 Oct.** |
-| 3 | ~Wed 14 Oct | Round loop, catch-up, 4-player playtests. |
-| 4 | ~Tue 20 Oct | Steam lobbies and invites, polish. **Submit build ~20 Oct.** |
-| 5 | Thu 29 Oct | Fixes, release. |
-
-## Out of scope for launch
-
-Multiple towers, cosmetics, matchmaking, progression.
+Steam rules: no release until 30 days after the app fee is paid; Coming Soon must
+be live for 14+ days; allow 7 days for each review.
 
 ## First steps
 
-1. Choose the netcode stack.
+1. Choose the netcode stack: FishNet or Netcode for GameObjects, with a Steam transport.
 2. Create the Unity 6 project in this folder.
 3. Get a 2-player Steam lobby working in a greybox scene.
+4. Prove prop and ragdoll sync early. It's the biggest technical risk.
 
 ## Repo notes
 

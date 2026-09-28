@@ -1,0 +1,140 @@
+# Close the Deal — Game Design Document
+
+Sep 28, 2026 · @Adam
+
+## Overview
+
+Two rival companies race up two skyscrapers side by side, shooting at each other through the windows. The first team to reach the roof wins. The game launches on Steam in Early Access on 29 Oct 2026.
+
+- **Hook:** window wars across the street, with zipline raids into the enemy tower.
+- **Genre:** co-op/PvP friend-slop, team vs team, short replayable runs.
+- **Vibe:** businessmen in suits, blown about by explosives, climbing increasingly ridiculous corporate floors. A deadpan secretary narrates it all.
+- **Engine:** Unity 6, host-authoritative peer-to-peer over Steam.
+- **Working title:** Close the Deal (not final).
+
+## Core loop and win condition
+
+The first team to reach the roof wins. Each run follows the same loop:
+
+1. Start in the company lobby. The secretary starts the run and hands out starting kit.
+2. Climb floor by floor. Find loot, keycards and rare items on the way up.
+3. Fight across the gap through the windows to slow the other team down.
+4. Reach checkpoint floors, which save progress and reveal how far the rival team has got.
+5. Take on the fixed boardroom, the final big fight, then reach the roof to win.
+
+The tension comes from trading speed against exploration. Rushing upwards keeps you ahead. Exploring a floor finds the items that let a team skip floors or raid the enemy.
+
+## The buildings
+
+Each team gets its own skyscraper, built from random floor templates between fixed progression points. This gives replayability without the building feeling incoherent.
+
+| Floor type | Placement | Purpose |
+|---|---|---|
+| Lobby / reception | Fixed, ground | Social space, run start, secretary |
+| Random floors | Stacked from templates | Most of the climb; layout changes each run |
+| Checkpoint floors | Fixed intervals | Save progress, show rival team's progress |
+| Special floors | Fixed points | Set-piece moments, harder sections |
+| Boardroom / executive | Fixed, near top | Final major fight |
+| Roof | Fixed, top | Win point |
+
+### Rules for templates
+
+- The building shell is not destructible. Only the contents are.
+- Every template uses standard window bays on the side that faces the other building, so sightlines always line up across the gap.
+- Players should generally be visible through the windows, especially on important floors. There should be no fully hidden routes.
+- Both buildings use the same seed each run, so neither team gets an easier layout. (Proposed; see open questions.)
+- Sections get harder and more absurd the higher you go.
+
+## Combat, weapons and physics
+
+Most fighting happens across the gap through the windows, and it should feel chaotic rather than precise. Explosions throw players and office furniture around; they don't bring down walls.
+
+| Item | Role | In v1 |
+|---|---|---|
+| Pistol / rifle | Reliable cross-gap shooting | Yes |
+| Rocket launcher | Knockback, scatters props, ragdolls players | Yes |
+| Throwable explosive | Lobbed through windows to flush out a floor | Yes |
+| Zipline gun | Rare; cross to the enemy building for a raid | Yes (showpiece) |
+| Roguelite weapons and gadgets | Weird run-altering kit | Roadmap |
+
+- **Physics props:** chairs, desks, computers and filing cabinets can be blown around. Cap the number of simulated props per floor and let the host own every prop.
+- **Ragdolls:** players ragdoll on explosions and heavy hits, then recover quickly. It should be funny, not a long stun.
+- **Zipline raids:** the player is fully exposed while crossing. Landing in the enemy building allows hit-and-run attacks, kills, stealing resources and general chaos.
+
+## Comebacks and rare items
+
+The game has no stat rubber-banding. A team that falls behind catches up through powerful rare items and shortcuts. Being ahead is an advantage, not a guarantee.
+
+- **Elevators + access cards:** rare elevators skip several floors, but each one needs a matching access card found on the floor. Using one makes a loud lift noise that alerts the other team. (Roadmap.)
+- **Zipline gun:** lets a trailing team raid the leaders directly.
+- **Other rare items:** planned for later, as part of the roguelite pool.
+
+Open design point: how strongly these items should favour the trailing team, for example through higher drop rates or items that only appear when behind.
+
+## Lobby and the secretary
+
+Each team starts in its company's reception area. The secretary is the game's main interface and its deadpan corporate voice.
+
+- **v1:** a simple lobby where talking to the secretary starts the run and hands over starting kit. She has a small set of deadpan lines at the start, at checkpoints and on win or loss.
+- **Roadmap:** character customisation, outfits, cosmetics, emotes and weapon loadouts in the lobby; a full commentary system through the run; the secretary managing upgrades physically instead of through menus.
+
+## Technical architecture
+
+The host owns everything that matters, and clients only send input. This keeps a physics-heavy game workable with no dedicated servers.
+
+- **Networking:** host-authoritative peer-to-peer over Steam. Choose between FishNet and Netcode for GameObjects with a Steam transport in week 1.
+- **Steam:** lobbies, friend invites and join-in-progress into the lobby only.
+- **Authority:** the host simulates props, ragdoll triggers, projectiles, item spawns and floor generation.
+- **Floor generation:** the host picks a seed and sends it to clients, which build the same floors locally.
+- **Physics budget:** a fixed cap on simulated props per floor, props sleep when still, and floors far from any player are frozen or unloaded.
+- **Ragdolls:** sync the trigger and impulse, then blend back to the animated character. Don't stream every bone.
+- **Building shells:** static geometry only, so there's no structural destruction to sync.
+
+**Biggest technical risk:** syncing props and ragdolls. If it isn't stable by the end of week 1, cut the number of props before cutting anything else.
+
+## v1 launch scope
+
+This is the Early Access build for 29 Oct. Anything not listed here is on the roadmap.
+
+- [ ] 2v2 teams, two buildings, Steam lobby and invites
+- [ ] Movement, climbing and cross-gap shooting that feel good
+- [ ] 8–10 random floor templates with shared window bays
+- [ ] 1 checkpoint floor showing the rival team's progress
+- [ ] Fixed boardroom final fight + roof win
+- [ ] Pistol/rifle, rocket launcher, throwable explosive, zipline gun
+- [ ] Physics props (capped) and explosion ragdolls
+- [ ] Lobby with a secretary who starts the run and has a few deadpan lines
+- [ ] Results screen and rematch
+- [ ] Office art style using asset packs, plus audio and screenshake
+- [ ] Store page: capsule art, 5+ screenshots, description, and an optional short trailer
+
+## Early Access roadmap
+
+These come after launch, roughly in priority order. Update 1 should add the features players miss most.
+
+| Priority | Feature | Why |
+|---|---|---|
+| 1 | Elevators + access cards, with loud lift alert | Core comeback mechanic, cheap to add |
+| 2 | Roguelite upgrades: weird weapons, movement, explosives, zipline mods, corporate gear | Main replayability driver |
+| 3 | More floor templates and difficulty sections | Freshness per run |
+| 4 | Resource stealing on zipline raids | Deepens raids |
+| 5 | Cosmetics, outfits, emotes in the lobby | Social layer, retention |
+| 6 | Full secretary commentary system | Personality, marketing moments |
+| 7 | 3v3 / 4v4 | Bigger lobbies once netcode is proven |
+
+## Schedule and Steam milestones
+
+The store page deadline on 7 Oct is the one that can't slip. It starts the 14-day Coming Soon clock that release depends on.
+
+Steam rules: no release until 30 days after the app fee is paid; the Coming Soon page must be live for at least 14 days; store page and build reviews take 3–5 business days each, so allow 7. Sources: Steam Direct, Release process.
+
+## Open questions
+
+- [ ] Confirm final name (working title: Close the Deal)
+- [ ] FishNet or Netcode for GameObjects + Steam transport?
+- [ ] Same seed for both buildings, or different layouts with balancing?
+- [ ] How many floors per run, and how long should a run take (target 10–15 min?)
+- [ ] Is respawn on death at the last checkpoint, or on the same floor after a delay?
+- [ ] Can a zipline raider be sent back, for example by cutting the line?
+- [ ] Price point and Early Access length
+- [ ] Is the Steamworks fee paid, and on what date? This sets the earliest release date.
