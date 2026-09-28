@@ -25,7 +25,9 @@ FishNet runs physics itself at 60 ticks/s (TimeManager physics mode) so predicte
 ## Designer-authored vs runtime-derived (AGENTS.md §4)
 
 **Authored, never written by runtime:** every field on `MovementProfile` and `BlastProfile`; the capsule size on the Player prefab; spawn points; the Player layer.
-**Derived at runtime:** jump launch speed (from jump height and air gravity); the tick control returns; the ledge stand point; the mantle timeout.
+**Derived at runtime:** jump launch speed (from jump height and air gravity); the ticks of control loss or climb time left; the ledge stand point.
+
+Timed states count **ticks remaining** rather than an end tick, so a reconcile restores the count and the replay decrements it again; nothing depends on client and host agreeing on tick numbers. (Taken from ValhallaPVP's motor, which does the same.)
 
 ## States
 
@@ -47,6 +49,7 @@ Under [Assets/_Project/Scripts/](../../Assets/_Project/Scripts/):
 - `Player/PlayerInputReader.cs`: polls the Input System every frame; jump and attack presses are latched so one that lands between ticks is not lost.
 - `Player/ThirdPersonCamera.cs`: orbit camera on the Main Camera; follows the smoothed visual, gives the motor its yaw. Escape frees the mouse for the lobby buttons.
 - `Combat/Knockback.cs`: turns a blast point into `ApplyKnockback` calls.
+- `UI/PredictionDebugHud.cs`: bottom-left readout of the local body's state, speed, last correction size and ping. The motor measures a correction by remembering where prediction put the body on each tick and comparing that with the host's position for the same tick when the reconcile arrives.
 
 Prefab: `Player.prefab` is a 1.8 m capsule with the pivot at the feet, mass 80, frictionless, rotation frozen. Its `Graphics` child is the FishNet graphical object: FishNet moves it smoothly between ticks, so visuals and camera never step.
 
@@ -58,7 +61,9 @@ Prefab: `Player.prefab` is a 1.8 m capsule with the pivot at the feet, mass 80, 
 
 ## Tuning
 
-All in `Assets/_Project/Profiles/DefaultMovement.asset` and `TestBlast.asset`, each field with a tooltip saying what it changes. Defaults: walk 6 m/s, sprint 9, jump 1.3 m, air gravity 2×, ledges 0.4–1.6 m, mantle 0.35 s; blast 3 m radius, 12 m/s throw, 0.7 s control loss.
+All in `Assets/_Project/Profiles/DefaultMovement.asset` and `TestBlast.asset`, each field with a tooltip saying what it changes. Defaults: walk 6 m/s, sprint 9, jump 1.3 m, air gravity 2×, fall capped at 30 m/s, body turns at 720°/s, ledges 0.4–1.6 m, mantle 0.35 s; blast 3 m radius, 12 m/s throw, 0.7 s control loss. The stick dead zone (0.1) sits on the Player prefab's input reader.
+
+For comparison, ValhallaPVP's playtested baseline was ground acceleration 24 m/s², braking 32, gravity 24 m/s², turn 720°/s, at the same 60 ticks/s. Ours start sharper (45 / 60) because this is a race, not a duel; tune by feel.
 
 ## Known limitations
 

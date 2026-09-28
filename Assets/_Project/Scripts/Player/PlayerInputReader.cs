@@ -14,6 +14,9 @@ namespace CloseTheDeal.Player
         [Tooltip("The Input System actions asset. Uses its Player map: Move, Look, Sprint, Jump, Attack.")]
         [SerializeField] InputActionAsset _actions;
 
+        [Tooltip("Smallest stick push that counts as movement, as a fraction of full tilt. 0.1 ignores stick drift; raise it if a pad creeps.")]
+        [Range(0f, 0.5f)] [SerializeField] float _deadZone = 0.1f;
+
         InputActionMap _map;
         InputAction _move;
         InputAction _look;
@@ -23,7 +26,19 @@ namespace CloseTheDeal.Player
         bool _jumpLatched;
         bool _attackLatched;
 
-        public Vector2 Move => _move.ReadValue<Vector2>();
+        /// <summary>Movement stick with the dead zone removed and the rest rescaled to 0–1.</summary>
+        public Vector2 Move
+        {
+            get
+            {
+                Vector2 raw = _move.ReadValue<Vector2>();
+                float magnitude = Mathf.Clamp01(raw.magnitude);
+                if (magnitude <= _deadZone)
+                    return Vector2.zero;
+
+                return raw.normalized * Mathf.InverseLerp(_deadZone, 1f, magnitude);
+            }
+        }
         public bool Sprint => _sprint.IsPressed();
         public Vector2 LookDelta => _look.ReadValue<Vector2>();
 

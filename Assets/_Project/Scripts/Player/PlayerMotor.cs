@@ -67,16 +67,16 @@ namespace CloseTheDeal.Player
         {
             public PredictionRigidbody Body;
             public MoveState State;
-            public uint StateEndTick;
+            public uint StateTicksLeft;
             public Vector3 MantleTarget;
             public byte MantlePhase;
             uint _tick;
 
-            public MoveReconcile(PredictionRigidbody body, MoveState state, uint stateEndTick, Vector3 mantleTarget, byte mantlePhase)
+            public MoveReconcile(PredictionRigidbody body, MoveState state, uint stateTicksLeft, Vector3 mantleTarget, byte mantlePhase)
             {
                 Body = body;
                 State = state;
-                StateEndTick = stateEndTick;
+                StateTicksLeft = stateTicksLeft;
                 MantleTarget = mantleTarget;
                 MantlePhase = mantlePhase;
                 _tick = 0;
@@ -85,6 +85,12 @@ namespace CloseTheDeal.Player
             public void Dispose() { }
             public uint GetTick() => _tick;
             public void SetTick(uint value) => _tick = value;
+        }
+
+        struct TickPosition
+        {
+            public uint Tick;
+            public Vector3 Position;
         }
 
         // ---- Inspector -----------------------------------------------------------------------
@@ -110,25 +116,39 @@ namespace CloseTheDeal.Player
         const float MantleTimeoutMultiplier = 2f;
         const float ArriveDistance = 0.05f;
         const float ProbeInset = 0.05f;
+        const float CorrectionNoticeMetres = 0.01f;
         const byte MantleRise = 0;
         const byte MantleStepOnto = 1;
+        const int HistoryLength = 256;
 
         static readonly Collider[] BlastBuffer = new Collider[16];
 
+        /// <summary>The body this client controls, for local readouts. Null on a pure host with no player.</summary>
+        public static PlayerMotor Local { get; private set; }
+
         readonly PredictionRigidbody _body = new();
+        readonly TickPosition[] _history = new TickPosition[HistoryLength];
         Rigidbody _rigidbody;
         CapsuleCollider _capsule;
         PlayerInputReader _input;
 
         MoveState _state;
-        uint _stateEndTick = TimeManager.UNSET_TICK;
+        uint _stateTicksLeft;
         Vector3 _mantleTarget;
         byte _mantlePhase;
-        uint _lastReplicateTick;
+        uint _currentTick;
         MoveInput _lastTickedInput;
         bool _grounded;
 
         public MoveState State => _state;
+        public bool Grounded => _grounded;
+        public float PlanarSpeed => Planar(_rigidbody.linearVelocity).magnitude;
+
+        /// <summary>How far the host's last correction moved this body from where it predicted itself, in metres.</summary>
+        public float LastCorrectionMetres { get; private set; }
+
+        /// <summary>How many corrections above a centimetre have arrived since spawn.</summary>
+        public int CorrectionCount { get; private set; }
 
         // ---- Lifecycle -----------------------------------------------------------------------
 
@@ -152,6 +172,7 @@ namespace CloseTheDeal.Player
             if (!IsOwner)
                 return;
 
+            Local = this;
             _input.enabled = true;
             if (ThirdPersonCamera.Instance != null)
                 ThirdPersonCamera.Instance.Follow(_cameraTarget, _input);
@@ -160,7 +181,12 @@ namespace CloseTheDeal.Player
         public override void OnStopClient()
         {
             base.OnStopClient();
-            if (IsOwner && ThirdPersonCamera.Instance != null)
+            if (!IsOwner)
+                return;
+
+            if (Local == this)
+                Local = null;
+            if (ThirdPersonCamera.Instance != null)
                 ThirdPersonCamera.Instance.Release(_cameraTarget);
         }
 
@@ -173,6 +199,8 @@ namespace CloseTheDeal.Player
 
         protected override void TimeManager_OnPostTick()
         {
+            // Physics has stepped for this tick; remember where prediction put the body.
+            _history[_currentTick % HistoryLength] = new TickPosition { Tick = _currentTick, Position = _rigidbody.position };
             CreateReconcile();
         }
 
@@ -188,16 +216,17 @@ namespace CloseTheDeal.Player
 
         public override void CreateReconcile()
         {
-            RunReconcile(new MoveReconcile(_body, _state, _stateEndTick, _mantleTarget, _mantlePhase));
+            RunReconcile(new MoveReconcile(_body, _state, _stateTicksLeft, _mantleTarget, _mantlePhase));
         }
 
         [Replicate]
         void RunMove(MoveInput input, ReplicateState state = ReplicateState.Invalid, Channel channel = Channel.Unreliable)
         {
             input = PredictSpectatorInput(input, state);
-            _lastReplicateTick = input.GetTick();
-            float dt = (float)TimeManager.TickDelta;
+            if (!state.ContainsReplayed())
+                _currentTick = input.GetTick();
 
+            float dt = (float)TimeManager.TickDelta;
             _grounded = ProbeGround();
 
             switch (_state)
@@ -209,7 +238,8 @@ namespace CloseTheDeal.Player
             }
 
             // After any velocity write: setting velocity clears queued forces, and this must survive.
-            _body.MoveRotation(Quaternion.Euler(0f, input.Yaw, 0f));
+            float yaw = Mathf.MoveTowardsAngle(_rigidbody.rotation.eulerAngles.y, input.Yaw, _profile.TurnSpeed * dt);
+            _body.MoveRotation(Quaternion.Euler(0f, yaw, 0f));
 
             if (input.OneShots.Attack && IsServerStarted)
                 FireTestBlast(input.Yaw);
@@ -222,9 +252,27 @@ namespace CloseTheDeal.Player
         {
             _body.Reconcile(data.Body);
             _state = data.State;
-            _stateEndTick = data.StateEndTick;
+            _stateTicksLeft = data.StateTicksLeft;
             _mantleTarget = data.MantleTarget;
             _mantlePhase = data.MantlePhase;
+
+            if (!IsServerStarted)
+                MeasureCorrection(data.GetTick());
+        }
+
+        /// <summary>Compares the host's position for a tick with where prediction had put the body on that tick.</summary>
+        void MeasureCorrection(uint tick)
+        {
+            TickPosition predicted = _history[tick % HistoryLength];
+            if (predicted.Tick != tick)
+                return;
+
+            float metres = Vector3.Distance(predicted.Position, _rigidbody.position);
+            if (metres < CorrectionNoticeMetres)
+                return;
+
+            LastCorrectionMetres = metres;
+            CorrectionCount++;
         }
 
         /// <summary>
@@ -294,17 +342,19 @@ namespace CloseTheDeal.Player
             if (wish.sqrMagnitude > 0.01f)
                 planar = Vector3.MoveTowards(planar, wish, _profile.AirAcceleration * dt);
 
-            _body.Velocity(new Vector3(planar.x, velocity.y, planar.z));
+            _body.Velocity(new Vector3(planar.x, ClampFall(velocity.y), planar.z));
             AddExtraGravity();
         }
 
         void MantleStep(float dt)
         {
-            if (_lastReplicateTick >= _stateEndTick)
+            if (_stateTicksLeft == 0)
             {
                 Enter(MoveState.Airborne);
                 return;
             }
+
+            _stateTicksLeft--;
 
             // Fixed pace: the tallest climb takes the profile duration, shorter ones less.
             float pace = (_profile.MaxLedgeHeight + _profile.LedgeReach + _capsule.radius) / _profile.MantleDuration;
@@ -338,18 +388,21 @@ namespace CloseTheDeal.Player
 
         void KnockedStep(float dt)
         {
+            Vector3 velocity = _rigidbody.linearVelocity;
             if (_grounded)
             {
-                Vector3 velocity = _rigidbody.linearVelocity;
                 Vector3 planar = Vector3.MoveTowards(Planar(velocity), Vector3.zero, _profile.KnockedBraking * dt);
                 _body.Velocity(new Vector3(planar.x, velocity.y, planar.z));
             }
             else
             {
+                _body.Velocity(new Vector3(velocity.x, ClampFall(velocity.y), velocity.z));
                 AddExtraGravity();
             }
 
-            if (_lastReplicateTick >= _stateEndTick)
+            if (_stateTicksLeft > 0)
+                _stateTicksLeft--;
+            if (_stateTicksLeft == 0)
                 Enter(_grounded ? MoveState.Grounded : MoveState.Airborne);
         }
 
@@ -364,7 +417,7 @@ namespace CloseTheDeal.Player
 
             _body.AddForce(velocityChange, ForceMode.VelocityChange);
             Enter(MoveState.Knocked);
-            _stateEndTick = _lastReplicateTick + TimeManager.TimeToTicks(controlLossSeconds, TickRounding.RoundUp);
+            _stateTicksLeft = System.Math.Max(1u, TimeManager.TimeToTicks(controlLossSeconds, TickRounding.RoundUp));
         }
 
         // ---- Mantling ------------------------------------------------------------------------
@@ -379,7 +432,7 @@ namespace CloseTheDeal.Player
 
             Enter(MoveState.Mantling);
             _mantleTarget = standPoint;
-            _stateEndTick = _lastReplicateTick + TimeManager.TimeToTicks(_profile.MantleDuration * MantleTimeoutMultiplier, TickRounding.RoundUp);
+            _stateTicksLeft = TimeManager.TimeToTicks(_profile.MantleDuration * MantleTimeoutMultiplier, TickRounding.RoundUp);
             _body.Velocity(Vector3.zero);
             return true;
         }
@@ -461,6 +514,11 @@ namespace CloseTheDeal.Player
             return Mathf.Sqrt(2f * -Physics.gravity.y * _profile.AirGravityMultiplier * _profile.JumpHeight);
         }
 
+        float ClampFall(float verticalSpeed)
+        {
+            return _profile.MaxFallSpeed > 0f ? Mathf.Max(verticalSpeed, -_profile.MaxFallSpeed) : verticalSpeed;
+        }
+
         void AddExtraGravity()
         {
             if (_profile.AirGravityMultiplier > 1f)
@@ -470,7 +528,7 @@ namespace CloseTheDeal.Player
         void Enter(MoveState next)
         {
             _state = next;
-            _stateEndTick = TimeManager.UNSET_TICK;
+            _stateTicksLeft = 0;
             _mantlePhase = MantleRise;
         }
 

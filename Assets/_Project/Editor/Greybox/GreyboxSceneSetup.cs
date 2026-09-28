@@ -283,6 +283,10 @@ namespace CloseTheDeal.Editor.Greybox
             // Always re-point the spawner, so a rebuilt prefab is picked up.
             manager.GetComponent<PlayerSpawner>().SetPlayerPrefab(playerPrefab);
             EnsureTimeManager(manager.gameObject);
+
+            // Direct connection on this PC for local test mode; SteamLobby picks the transport at runtime.
+            if (manager.GetComponent<FishNet.Transporting.Tugboat.Tugboat>() == null)
+                manager.gameObject.AddComponent<FishNet.Transporting.Tugboat.Tugboat>();
         }
 
         /// <summary>FishNet must drive physics itself for rigidbody prediction; 60 ticks a second.</summary>
@@ -334,8 +338,12 @@ namespace CloseTheDeal.Editor.Greybox
 
         static void EnsureLobbyPanel(SteamLobby lobby)
         {
-            if (Object.FindAnyObjectByType<LobbyPanel>() != null)
+            LobbyPanel existingPanel = Object.FindAnyObjectByType<LobbyPanel>();
+            if (existingPanel != null)
+            {
+                EnsurePredictionHud(existingPanel.transform);
                 return;
+            }
 
             if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
@@ -368,6 +376,24 @@ namespace CloseTheDeal.Editor.Greybox
             SetReference(serialized, "_leaveButton", leave);
             SetReference(serialized, "_statusText", status);
             SetReference(serialized, "_playersText", players);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            EnsurePredictionHud(canvasGo.transform);
+        }
+
+        /// <summary>Bottom-left readout of the local body's state and correction size.</summary>
+        static void EnsurePredictionHud(Transform canvas)
+        {
+            if (canvas.GetComponent<PredictionDebugHud>() != null)
+                return;
+
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Text text = MakeText(canvas, "Prediction", string.Empty, new Vector2(20f, -960f), new Vector2(1200f, 80f), font);
+            text.fontSize = 20;
+
+            var hud = canvas.gameObject.AddComponent<PredictionDebugHud>();
+            var serialized = new SerializedObject(hud);
+            SetReference(serialized, "_text", text);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

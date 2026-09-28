@@ -11,12 +11,20 @@ namespace CloseTheDeal.Net
     /// Host, invite and join through Steam lobbies, then start FishNet on top.
     /// The host creates a friends-only lobby, writes its SteamID64 into the lobby data and
     /// starts the server. A joiner reads that ID and connects to it through FishySteamworks.
+    ///
+    /// Local test mode swaps Steam for a direct connection on this PC (FishNet's Tugboat), so
+    /// an editor and a build of the same commit can play together without two Steam accounts.
+    /// It is used when Steam is not running, when the game is launched with -local, or when
+    /// forced in the Inspector.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class SteamLobby : MonoBehaviour
     {
         [Tooltip("How many players one lobby holds, host included. 2 for the first greybox test; raise to 4 once 2v2 is in.")]
         [SerializeField] int _maxPlayers = 2;
+
+        [Tooltip("Tick to ignore Steam and connect directly on this PC, for testing an editor against a build. Off for anything a friend joins.")]
+        [SerializeField] bool _forceLocalTestMode;
 
         /// <summary>Human-readable state for the lobby panel. Raised only when something changes.</summary>
         public event Action<string> OnStatus;
@@ -26,7 +34,13 @@ namespace CloseTheDeal.Net
 
         public CSteamID LobbyId { get; private set; } = CSteamID.Nil;
 
+        /// <summary>True when connecting directly on this PC instead of through Steam.</summary>
+        public bool LocalMode { get; private set; }
+
         public bool InLobby => LobbyId.IsValid();
+
+        /// <summary>Hosting or joined, by either route.</summary>
+        public bool IsActive => InLobby || _net.ServerManager.Started || _net.ClientManager.Started;
 
         public bool IsLobbyOwner => InLobby && SteamMatchmaking.GetLobbyOwner(LobbyId) == SteamService.LocalId;
 
@@ -34,8 +48,12 @@ namespace CloseTheDeal.Net
 
         const string HostKey = "host";
         const string ConnectLobbyArg = "+connect_lobby";
+        const string LocalArg = "-local";
+        const string LocalAddress = "localhost";
 
         NetworkManager _net;
+        Transport _steamTransport;
+        Transport _localTransport;
         Callback<LobbyCreated_t> _lobbyCreated;
         Callback<LobbyEnter_t> _lobbyEntered;
         Callback<GameLobbyJoinRequested_t> _joinRequested;
@@ -52,13 +70,17 @@ namespace CloseTheDeal.Net
             }
 
             _net.ClientManager.OnClientConnectionState += OnClientConnectionState;
+            _steamTransport = _net.GetComponent<global::FishySteamworks.FishySteamworks>();
+            _localTransport = _net.GetComponent<FishNet.Transporting.Tugboat.Tugboat>();
 
-            if (!SteamService.IsReady)
+            LocalMode = _forceLocalTestMode || HasArg(LocalArg) || !SteamService.IsReady;
+            if (LocalMode)
             {
-                Status("Steam is not running. Start Steam, then restart the game.");
+                StartLocalMode();
                 return;
             }
 
+            _net.TransportManager.Transport = _steamTransport;
             _lobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
             _lobbyEntered = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
             _joinRequested = Callback<GameLobbyJoinRequested_t>.Create(OnJoinRequested);
@@ -83,15 +105,37 @@ namespace CloseTheDeal.Net
 
         public void Host()
         {
-            if (!SteamService.IsReady || InLobby)
+            if (IsActive)
                 return;
+
+            if (LocalMode)
+            {
+                _net.ServerManager.StartConnection();
+                _net.ClientManager.StartConnection();
+                Status("Hosting on this PC. Start a second copy and press Join local.");
+                OnChanged?.Invoke();
+                return;
+            }
 
             Status("Creating lobby...");
             SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypeFriendsOnly, _maxPlayers);
         }
 
-        public void Invite()
+        /// <summary>The second button: a Steam invite, or in local mode a join to the host on this PC.</summary>
+        public void InviteOrJoin()
         {
+            if (LocalMode)
+            {
+                if (IsActive)
+                    return;
+
+                _net.TransportManager.Transport.SetClientAddress(LocalAddress);
+                _net.ClientManager.StartConnection();
+                Status("Joining the host on this PC...");
+                OnChanged?.Invoke();
+                return;
+            }
+
             if (InLobby)
                 SteamFriends.ActivateGameOverlayInviteDialog(LobbyId);
         }
@@ -107,8 +151,24 @@ namespace CloseTheDeal.Net
                 SteamMatchmaking.LeaveLobby(LobbyId);
 
             LobbyId = CSteamID.Nil;
-            Status("Left the lobby.");
+            Status(LocalMode ? "Left. Local test mode." : "Left the lobby.");
             OnChanged?.Invoke();
+        }
+
+        // ---- Local test mode -----------------------------------------------------------------
+
+        void StartLocalMode()
+        {
+            if (_localTransport == null)
+            {
+                Status("Local test mode needs a Tugboat transport on the NetworkManager.");
+                Debug.LogError("[Lobby] No Tugboat on the NetworkManager; run Close the Deal > Greybox > Set Up Scene.");
+                return;
+            }
+
+            _net.TransportManager.Transport = _localTransport;
+            string why = SteamService.IsReady ? "forced" : "Steam is not running";
+            Status($"Local test mode ({why}). Host here, or Join local from a second copy.");
         }
 
         // ---- Steam callbacks -----------------------------------------------------------------
@@ -150,7 +210,7 @@ namespace CloseTheDeal.Net
 
         void OnJoinRequested(GameLobbyJoinRequested_t cb)
         {
-            if (InLobby)
+            if (IsActive)
                 Leave();
 
             Status("Joining lobby from invite...");
@@ -172,15 +232,23 @@ namespace CloseTheDeal.Net
             switch (args.ConnectionState)
             {
                 case LocalConnectionState.Started:
-                    Status(IsLobbyOwner ? "Hosting. Press Invite and pick a friend." : $"Connected to {HostName()}.");
+                    Status(ConnectedStatus());
                     break;
                 case LocalConnectionState.Stopped:
-                    if (InLobby && !IsLobbyOwner)
+                    if (IsActive && !_net.ServerManager.Started)
                         Status("Disconnected from the host.");
                     break;
             }
 
             OnChanged?.Invoke();
+        }
+
+        string ConnectedStatus()
+        {
+            if (_net.ServerManager.Started)
+                return LocalMode ? "Hosting on this PC. Start a second copy and press Join local." : "Hosting. Press Invite and pick a friend.";
+
+            return LocalMode ? "Connected to the host on this PC." : $"Connected to {HostName()}.";
         }
 
         // ---- Helpers -------------------------------------------------------------------------
@@ -198,6 +266,18 @@ namespace CloseTheDeal.Net
                 SteamMatchmaking.JoinLobby(new CSteamID(id));
                 return;
             }
+        }
+
+        static bool HasArg(string flag)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], flag, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         string HostName()

@@ -24,6 +24,9 @@ namespace CloseTheDeal.Player
         [Tooltip("How quickly a knocked-down player skids to a stop once on the floor, in metres per second per second. Lower = longer comedy slide.")]
         public float KnockedBraking = 15f;
 
+        [Tooltip("How fast the body turns to face where the camera looks, in degrees per second. 720 feels immediate; 360 shows the turn; below 180 feels sluggish.")]
+        public float TurnSpeed = 720f;
+
         [Header("Air")]
         [Tooltip("How much the player can steer in the air, in metres per second per second. 0 = none; about a quarter of the ground value feels natural.")]
         public float AirAcceleration = 12f;
@@ -33,6 +36,9 @@ namespace CloseTheDeal.Player
 
         [Tooltip("Extra pull-down while airborne, as a multiple of normal gravity. 1 = floaty real-world arcs; 2 = snappy game jumps. Also shapes how far a blast throws you.")]
         public float AirGravityMultiplier = 2f;
+
+        [Tooltip("Fastest a player can fall, in metres per second. Caps long drops and big blasts. 30 is a hard but readable fall; 0 = no cap.")]
+        public float MaxFallSpeed = 30f;
 
         [Header("Climbing")]
         [Tooltip("Highest ledge the player can climb onto, in metres above their feet. Keep below the player's height (1.8) or they climb things they can't reach.")]

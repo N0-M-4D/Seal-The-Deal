@@ -40,10 +40,23 @@ Scene wiring is built by the menu item **Close the Deal > Greybox > Set Up Scene
 
 ## Testing it
 
+### On one PC, without Steam: local test mode
+
+Two copies of the game on the same PC connect directly (FishNet's Tugboat transport) instead of through Steam. The lobby uses it when Steam is not running, when the game is launched with `-local`, or when **Force Local Test Mode** is ticked on the `Steam` object's SteamLobby.
+
+1. Build the game (File > Build Profiles > Windows) from the same commit as the editor.
+2. In the editor press Play, then **Host**.
+3. Launch the build with `-local` (or with Steam closed) and press **Join local**.
+
+The build joins the editor's host on this PC. Everything else (movement, blasts, corrections) is the real network path, only over loopback, so it shows logic bugs but not lag.
+
+### Over Steam
+
 - Steam must be running and signed in on each PC.
 - Two players need **two Steam accounts on two PCs**. Steam allows one signed-in client per PC.
 - In the editor: open `Greybox.unity`, press Play, **Host**, **Invite**. The friend needs a build (File > Build Profiles > Windows) or their own editor on the same commit.
 - Once spawned: WASD walk, Shift sprint, Space jump, mouse look, left click test blast, Escape frees the mouse.
+- The bottom-left readout shows the local body's state, speed, the size of the host's last correction and the ping. Corrections of a few centimetres are normal; repeated corrections of half a metre or more while walking on flat ground mean prediction and host disagree, which is a bug in `PlayerMotor`, not lag.
 - `steam_appid.txt` (containing `480`) must sit next to the executable or in the project root. Steamworks.NET writes it into the project root the first time the editor opens; it is git-ignored and must never ship.
 
 Nothing here has been seen running yet; that is the next step.
