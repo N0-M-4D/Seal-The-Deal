@@ -37,17 +37,46 @@ Each team gets its own skyscraper, built from random floor templates between fix
 | Boardroom / executive | Fixed, near top | Final major fight |
 | Roof | Fixed, top | Win point |
 
+### Standard floor layout
+
+Every random floor uses the same shell (decided 2026-09-28):
+
+```
+          RIVAL TOWER
+               ↓
+┌───────────────────────────────┐
+│                               │
+│          MAIN FLOOR           │
+│                               │
+│    ┌───────┐     ┌───────┐    │
+│    │ GLASS │     │ GLASS │    │
+│    │ ROOM  │     │ ROOM  │    │
+│    └───────┘     └───────┘    │
+│                               │
+├──────── SERVICE SPINE ────────┤
+│ WC │ STORE │ STAIRS ↑ │ UTIL  │
+└───────────────────────────────┘
+```
+
+- **Main floor** faces the rival tower. It is always open: you can clearly see where every player on it is. Templates vary this area.
+- **Glass rooms** show who is inside but give no protection.
+- **Service spine** sits at the back and is the same on every floor, so the stairs always line up and random floors stack cleanly.
+- **WC and UTIL** can be fully covered. A player inside is hidden from the rival, but in turn can't see what the rival is doing.
+- Floor depth is set in the greybox so the back of the main floor stays within cross-gap weapon range.
+
 ### Rules for templates
 
 - The building shell is not destructible. Only the contents are.
 - Every template uses standard window bays on the side that faces the other building, so sightlines always line up across the gap.
-- Players should generally be visible through the windows, especially on important floors. There should be no fully hidden routes.
+- Players should generally be visible through the windows, especially on important floors. The main floor is always visible; only the service spine rooms may be fully hidden.
 - Both buildings use the same seed each run, so neither team gets an easier layout. (Proposed; see open questions.)
 - Sections get harder and more absurd the higher you go.
 
 ## Combat, weapons and physics
 
 Most fighting happens across the gap through the windows, and it should feel chaotic rather than precise. Explosions throw players and office furniture around; they don't bring down walls.
+
+Glass never stops a projectile. Every bullet, rocket and throwable goes straight through windows and glass-room walls.
 
 | Item | Role | In v1 |
 |---|---|---|
@@ -82,7 +111,8 @@ Each team starts in its company's reception area. The secretary is the game's ma
 
 The host owns everything that matters, and clients only send input. This keeps a physics-heavy game workable with no dedicated servers.
 
-- **Networking:** host-authoritative peer-to-peer over Steam. Choose between FishNet and Netcode for GameObjects with a Steam transport in week 1.
+- **Networking:** host-authoritative peer-to-peer over Steam, using **FishNet with the FishySteamworks transport** (decided 2026-09-28). FishNet has built-in client prediction, so knockback feels instant on a client rather than a round-trip late. Fallback if prediction fights us in week 1: the host decides all knockback, unpredicted.
+- **Host leaving:** if the host quits, the run ends. There is no host migration.
 - **Steam:** lobbies, friend invites and join-in-progress into the lobby only.
 - **Authority:** the host simulates props, ragdoll triggers, projectiles, item spawns and floor generation.
 - **Floor generation:** the host picks a seed and sends it to clients, which build the same floors locally.
@@ -131,7 +161,8 @@ Steam rules: no release until 30 days after the app fee is paid; the Coming Soon
 ## Open questions
 
 - [ ] Confirm final name (working title: Close the Deal)
-- [ ] FishNet or Netcode for GameObjects + Steam transport?
+- [x] ~~FishNet or Netcode for GameObjects + Steam transport?~~ FishNet + FishySteamworks.
+- [ ] Are the stairs in the service spine visible to the rival, or hidden like the WC and UTIL?
 - [ ] Same seed for both buildings, or different layouts with balancing?
 - [ ] How many floors per run, and how long should a run take (target 10–15 min?)
 - [ ] Is respawn on death at the last checkpoint, or on the same floor after a delay?

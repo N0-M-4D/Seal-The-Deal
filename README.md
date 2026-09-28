@@ -22,7 +22,7 @@ be live for 14+ days; allow 7 days for each review.
 
 ## First steps
 
-1. Choose the netcode stack: FishNet or Netcode for GameObjects, with a Steam transport.
+1. ~~Choose the netcode stack.~~ FishNet + FishySteamworks (see the GDD).
 2. Create the Unity 6 project in this folder.
 3. Get a 2-player Steam lobby working in a greybox scene.
 4. Prove prop and ragdoll sync early. It's the biggest technical risk.
