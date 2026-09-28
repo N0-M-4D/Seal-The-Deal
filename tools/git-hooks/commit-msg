@@ -1,0 +1,9 @@
+#!/bin/sh
+# Strips AI co-author trailers and tool adverts from commit messages (AGENTS.md §9).
+# Human co-author lines are left alone.
+msg_file="$1"
+tmp="$msg_file.tmp"
+grep -viE '^co-authored-by:.*(claude|anthropic|cursor|copilot|openai|codex|gemini)|generated with \[?claude code' "$msg_file" > "$tmp"
+# Drop trailing blank lines left behind
+sed -e ':a' -e '/^\n*$/{$d;N;ba' -e '}' "$tmp" > "$msg_file"
+rm -f "$tmp"

@@ -29,5 +29,7 @@ be live for 14+ days; allow 7 days for each review.
 
 ## Repo notes
 
+- Repo rules for people and agents: [AGENTS.md](AGENTS.md).
 - Large binary assets go through Git LFS (see `.gitattributes`). Run `git lfs install` once per machine.
+- After cloning, install the commit hook that strips AI co-author lines: `cp tools/git-hooks/commit-msg .git/hooks/`.
 - Unity should use **Visible Meta Files** and **Force Text** asset serialization (the Unity 6 defaults).
