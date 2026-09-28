@@ -53,6 +53,7 @@ namespace CloseTheDeal.Editor.Greybox
             NetworkObject playerPrefab = EnsurePlayerPrefab();
 
             EnsureFloorAndCamera();
+            EnsureObstacles();
             EnsureOrbitCamera();
             Transform spawnA = EnsureSpawn("SpawnA", new Vector3(-2f, 0.1f, 0f));
             Transform spawnB = EnsureSpawn("SpawnB", new Vector3(2f, 0.1f, 0f));
@@ -206,6 +207,35 @@ namespace CloseTheDeal.Editor.Greybox
                 cam.transform.position = new Vector3(0f, 14f, -14f);
                 cam.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
             }
+        }
+
+        /// <summary>Things to climb and bump into: blocks at desk, sill and chest height, one too tall, and a ramp.</summary>
+        static void EnsureObstacles()
+        {
+            if (GameObject.Find("Obstacles") != null)
+                return;
+
+            var parent = new GameObject("Obstacles");
+            MakeBlock(parent.transform, "Desk 0.75m", new Vector3(-6f, 0f, 6f), new Vector3(2f, 0.75f, 1f));
+            MakeBlock(parent.transform, "Sill 1.1m", new Vector3(-2f, 0f, 6f), new Vector3(2f, 1.1f, 1f));
+            MakeBlock(parent.transform, "Ledge 1.5m", new Vector3(2f, 0f, 6f), new Vector3(2f, 1.5f, 1f));
+            MakeBlock(parent.transform, "Wall 2.5m", new Vector3(6f, 0f, 6f), new Vector3(2f, 2.5f, 1f));
+            MakeBlock(parent.transform, "Upper floor", new Vector3(0f, 0f, 12f), new Vector3(10f, 3f, 4f));
+
+            // Stairs must be ramps for the capsule body (PLAYER_MOVEMENT.md, level rules).
+            GameObject ramp = MakeBlock(parent.transform, "Ramp", new Vector3(-8f, 0f, 0f), new Vector3(2f, 0.2f, 6f));
+            ramp.transform.position = new Vector3(-8f, 0.75f, -3f);
+            ramp.transform.rotation = Quaternion.Euler(-14f, 0f, 0f);
+        }
+
+        static GameObject MakeBlock(Transform parent, string name, Vector3 footprintOrigin, Vector3 size)
+        {
+            GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            block.name = name;
+            block.transform.SetParent(parent, false);
+            block.transform.localScale = size;
+            block.transform.position = footprintOrigin + Vector3.up * (size.y * 0.5f);
+            return block;
         }
 
         static void EnsureOrbitCamera()
