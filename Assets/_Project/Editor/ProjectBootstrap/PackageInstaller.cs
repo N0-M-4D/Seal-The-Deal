@@ -21,11 +21,15 @@ namespace CloseTheDeal.Editor.ProjectBootstrap
             "https://github.com/FirstGearGames/FishNet.git?path=Assets/FishNet#4.7.3",
             // Steamworks.NET 2025.164.1 (2 Aug 2026): Valve's Steam API for C#.
             "https://github.com/rlabrecque/Steamworks.NET.git?path=/com.rlabrecque.steamworks.net#2025.164.1",
-            // FishySteamworks 4.1.1 (Aug 2024): the FishNet transport that sends traffic over Steam.
-            "https://github.com/FirstGearGames/FishySteamworks.git#4.1.1",
         };
 
-        static readonly string[] PackagesToRemove = { };
+        // FishySteamworks is not a Package Manager package: it ships no assembly definition, so
+        // Unity never compiles it from Packages/. It is imported from its release .unitypackage
+        // into Assets/FishNet/Plugins/FishySteamworks instead. This removes the dead entry.
+        static readonly string[] PackagesToRemove =
+        {
+            "com.firstgeargames.fishysteamworks",
+        };
 
         const double TimeoutSeconds = 600;
 

@@ -14,14 +14,15 @@ The owner, Adam, is a game designer, not a programmer.
 
 ## Layout
 
-Target layout, created as the Unity project is set up. Update this section when it changes.
+Everything of ours lives under `Assets/_Project/`. Update this section when it changes.
 
-- Gameplay code: `Assets/_Project/Scripts/<System>/`, namespace `CloseTheDeal.<System>`.
-- Networking glue (lobby, transport, spawning): `Assets/_Project/Scripts/Net/`.
-- Floor templates: `Assets/_Project/Floors/`, one prefab per template.
-- Scenes: `Assets/_Project/Scenes/`.
-- Editor tools: `Assets/_Project/Editor/`, menu-invoked only.
-- Third-party packs and plugins stay where they import (`Assets/Plugins/`, vendor folders). Never edit vendor code in place; wrap it.
+- Gameplay code: `Assets/_Project/Scripts/<System>/`, namespace `CloseTheDeal.<System>`. Existing: `Net/` (Steam, lobby), `Player/`, `UI/`.
+- Prefabs: `Assets/_Project/Prefabs/`. `Player.prefab` is the networked player.
+- Floor templates (not yet started): `Assets/_Project/Floors/`, one prefab per template.
+- Scenes: `Assets/_Project/Scenes/`. `Greybox.unity` is the test scene.
+- Editor tools: `Assets/_Project/Editor/`, menu-invoked only. `Close the Deal > Greybox > Set Up Scene` adds anything missing from the greybox scene and never rebuilds what exists.
+- FishNet writes `Assets/DefaultPrefabObjects.asset` itself (its list of networked prefabs). Commit it; never edit it.
+- Third-party packs and plugins stay where they import (`Assets/Plugins/`, vendor folders). Never edit vendor code in place; wrap it. Existing: `Assets/FishNet/Plugins/FishySteamworks/` (the Steam transport, from its release `.unitypackage`; FishNet and Steamworks.NET themselves are Package Manager packages).
 - Design docs: `docs/`; system docs in `docs/systems/`; spent plans in `docs/archive/`.
 
 ## Memory
