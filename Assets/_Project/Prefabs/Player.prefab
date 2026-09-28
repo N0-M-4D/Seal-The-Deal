@@ -247,6 +247,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CloseTheDeal.Player.PlayerInputReader
   _actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  _deadZone: 0.1
 --- !u!114 &7581206824313403346
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -271,6 +272,9 @@ MonoBehaviour:
   _playerMask:
     serializedVersion: 2
     m_Bits: 64
+  _propMask:
+    serializedVersion: 2
+    m_Bits: 128
   _cameraTarget: {fileID: 4165610245162811838}
 --- !u!1 &7111191965594976901
 GameObject:

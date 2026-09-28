@@ -19,6 +19,8 @@ Stack: **FishNet 4.7.3** with the **FishySteamworks 4.1.1** transport over **Ste
 | Server | Host's PC | — | 60 ticks/s; FishNet also steps physics per tick |
 | Player body | **Host.** Spawned by the host, owned by the connecting client, which predicts its own moves | Inputs up (~20 B), host state down (~70 B) | Every tick |
 | Knockback | Host only | Inside the body state | On hit |
+| Props (furniture) | **Host** simulates; clients hold them kinematic | Position and rotation, via NetworkTransform; see [PROPS.md](PROPS.md) | While moving, 30/s |
+| Towers | Host picks a seed; everyone builds locally; see [TOWER.md](TOWER.md) | One number | Once |
 
 ## Scripts
 

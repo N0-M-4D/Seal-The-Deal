@@ -36,7 +36,9 @@ namespace CloseTheDeal.Editor.Greybox
         const string PlayerPhysicsMaterialPath = PhysicsFolder + "/Frictionless.physicsMaterial";
         const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         const string PlayerLayerName = "Player";
-        const int PlayerLayer = 6;
+        const string PropLayerName = "Prop";
+        public const int PlayerLayer = 6;
+        public const int PropLayer = 7;
         const int TickRate = 60;
 
         const float BodyHeight = 1.8f;
@@ -50,7 +52,7 @@ namespace CloseTheDeal.Editor.Greybox
             if (scene.path != ScenePath)
                 scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
-            EnsurePlayerLayer();
+            EnsureLayers();
             NetworkObject playerPrefab = EnsurePlayerPrefab();
 
             EnsureFloorAndCamera();
@@ -71,9 +73,19 @@ namespace CloseTheDeal.Editor.Greybox
         [MenuItem("Close the Deal/Greybox/Rebuild Player Prefab")]
         public static void RebuildPlayerPrefab()
         {
-            EnsurePlayerLayer();
+            EnsureLayers();
             BuildPlayerPrefab();
             SetUpScene();
+        }
+
+        /// <summary>Player prefab, prop prefabs, floor templates and the scene, all rewritten from the tool.</summary>
+        [MenuItem("Close the Deal/Greybox/Rebuild Everything")]
+        public static void RebuildEverything()
+        {
+            EnsureLayers();
+            BuildPlayerPrefab();
+            GreyboxPropSetup.Ensure(true);
+            GreyboxTowerSetup.RebuildFloorTemplates();
         }
 
         // ---- Player prefab -------------------------------------------------------------------
@@ -138,6 +150,7 @@ namespace CloseTheDeal.Editor.Greybox
             SetReference(serializedMotor, "_blast", blast);
             SetInt(serializedMotor, "_groundMask", ~(1 << PlayerLayer));
             SetInt(serializedMotor, "_playerMask", 1 << PlayerLayer);
+            SetInt(serializedMotor, "_propMask", 1 << PropLayer);
             SetReference(serializedMotor, "_cameraTarget", graphics);
             serializedMotor.ApplyModifiedPropertiesWithoutUndo();
 
@@ -330,23 +343,29 @@ namespace CloseTheDeal.Editor.Greybox
 
         // ---- Project settings ----------------------------------------------------------------
 
-        static void EnsurePlayerLayer()
+        static void EnsureLayers()
         {
-            if (LayerMask.LayerToName(PlayerLayer) == PlayerLayerName)
+            EnsureLayer(PlayerLayer, PlayerLayerName);
+            EnsureLayer(PropLayer, PropLayerName);
+        }
+
+        static void EnsureLayer(int index, string name)
+        {
+            if (LayerMask.LayerToName(index) == name)
                 return;
 
             var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
             SerializedProperty layers = tagManager.FindProperty("layers");
-            SerializedProperty slot = layers.GetArrayElementAtIndex(PlayerLayer);
-            if (!string.IsNullOrEmpty(slot.stringValue) && slot.stringValue != PlayerLayerName)
+            SerializedProperty slot = layers.GetArrayElementAtIndex(index);
+            if (!string.IsNullOrEmpty(slot.stringValue) && slot.stringValue != name)
             {
-                Debug.LogError($"[Greybox] Layer {PlayerLayer} is already '{slot.stringValue}'; expected it free for '{PlayerLayerName}'.");
+                Debug.LogError($"[Greybox] Layer {index} is already '{slot.stringValue}'; expected it free for '{name}'.");
                 return;
             }
 
-            slot.stringValue = PlayerLayerName;
+            slot.stringValue = name;
             tagManager.ApplyModifiedPropertiesWithoutUndo();
-            Debug.Log($"[Greybox] Named layer {PlayerLayer} '{PlayerLayerName}'.");
+            Debug.Log($"[Greybox] Named layer {index} '{name}'.");
         }
 
         // ---- UI ------------------------------------------------------------------------------
@@ -478,25 +497,31 @@ namespace CloseTheDeal.Editor.Greybox
                 AssetDatabase.CreateFolder(parent, name);
         }
 
-        static void SetBool(SerializedObject so, string field, bool value)
+        internal static void SetBool(SerializedObject so, string field, bool value)
         {
             SerializedProperty p = Find(so, field);
             if (p != null) p.boolValue = value;
         }
 
-        static void SetInt(SerializedObject so, string field, int value)
+        internal static void SetInt(SerializedObject so, string field, int value)
         {
             SerializedProperty p = Find(so, field);
             if (p != null) p.intValue = value;
         }
 
-        static void SetEnum(SerializedObject so, string field, int index)
+        internal static void SetFloat(SerializedObject so, string field, float value)
+        {
+            SerializedProperty p = Find(so, field);
+            if (p != null) p.floatValue = value;
+        }
+
+        internal static void SetEnum(SerializedObject so, string field, int index)
         {
             SerializedProperty p = Find(so, field);
             if (p != null) p.enumValueIndex = index;
         }
 
-        static void SetReference(SerializedObject so, string field, Object value)
+        internal static void SetReference(SerializedObject so, string field, Object value)
         {
             SerializedProperty p = Find(so, field);
             if (p != null) p.objectReferenceValue = value;

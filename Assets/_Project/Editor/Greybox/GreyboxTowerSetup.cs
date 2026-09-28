@@ -1,3 +1,4 @@
+using CloseTheDeal.Props;
 using CloseTheDeal.Tower;
 using FishNet.Object;
 using UnityEditor;
@@ -41,6 +42,7 @@ namespace CloseTheDeal.Editor.Greybox
         public static void RebuildFloorTemplates()
         {
             TowerProfile profile = EnsureProfile();
+            GreyboxPropSetup.Ensure(false);
             BuildAllTemplates(profile, true);
             GreyboxSceneSetup.SetUpScene();
         }
@@ -75,17 +77,19 @@ namespace CloseTheDeal.Editor.Greybox
             if (!AssetDatabase.IsValidFolder(FloorFolder))
                 AssetDatabase.CreateFolder("Assets/_Project", "Floors");
 
+            GreyboxPropSetup.PropSet props = GreyboxPropSetup.Ensure(false);
+
             var serialized = new SerializedObject(profile);
-            AssignIfBuilt(serialized, "Lobby", BuildTemplate(profile, "Lobby", FloorKind.Lobby, 0, overwrite));
-            AssignIfBuilt(serialized, "Checkpoint", BuildTemplate(profile, "Checkpoint", FloorKind.Checkpoint, 0, overwrite));
-            AssignIfBuilt(serialized, "Boardroom", BuildTemplate(profile, "Boardroom", FloorKind.Boardroom, 0, overwrite));
-            AssignIfBuilt(serialized, "Roof", BuildTemplate(profile, "Roof", FloorKind.Roof, 0, overwrite));
+            AssignIfBuilt(serialized, "Lobby", BuildTemplate(profile, "Lobby", FloorKind.Lobby, 0, overwrite, props));
+            AssignIfBuilt(serialized, "Checkpoint", BuildTemplate(profile, "Checkpoint", FloorKind.Checkpoint, 0, overwrite, props));
+            AssignIfBuilt(serialized, "Boardroom", BuildTemplate(profile, "Boardroom", FloorKind.Boardroom, 0, overwrite, props));
+            AssignIfBuilt(serialized, "Roof", BuildTemplate(profile, "Roof", FloorKind.Roof, 0, overwrite, props));
 
             SerializedProperty offices = serialized.FindProperty("Offices");
             offices.arraySize = 3;
             for (int i = 0; i < 3; i++)
             {
-                FloorTemplate office = BuildTemplate(profile, $"Office{(char)('A' + i)}", FloorKind.Office, i, overwrite);
+                FloorTemplate office = BuildTemplate(profile, $"Office{(char)('A' + i)}", FloorKind.Office, i, overwrite, props);
                 if (office != null)
                     offices.GetArrayElementAtIndex(i).objectReferenceValue = office;
             }
@@ -101,7 +105,7 @@ namespace CloseTheDeal.Editor.Greybox
         }
 
         /// <summary>Writes one floor prefab. Saving over an existing path keeps its GUID.</summary>
-        static FloorTemplate BuildTemplate(TowerProfile profile, string name, FloorKind kind, int variant, bool overwrite)
+        static FloorTemplate BuildTemplate(TowerProfile profile, string name, FloorKind kind, int variant, bool overwrite, GreyboxPropSetup.PropSet props)
         {
             string path = $"{FloorFolder}/Floor_{name}.prefab";
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
@@ -113,7 +117,7 @@ namespace CloseTheDeal.Editor.Greybox
             template.Kind = kind;
 
             BuildShell(root.transform, profile, kind);
-            BuildContents(root.transform, profile, kind, variant);
+            BuildContents(root.transform, profile, kind, variant, props);
             if (kind == FloorKind.Lobby)
                 template.SpawnPoints = BuildSpawns(root.transform, profile);
 
@@ -241,7 +245,11 @@ namespace CloseTheDeal.Editor.Greybox
 
         // ---- Contents ------------------------------------------------------------------------
 
-        static void BuildContents(Transform floor, TowerProfile p, FloorKind kind, int variant)
+        /// <summary>
+        /// Static set dressing as boxes, loose furniture as prop markers. Each floor stays well
+        /// under the 16-prop cap in PROPS.md.
+        /// </summary>
+        static void BuildContents(Transform floor, TowerProfile p, FloorKind kind, int variant, GreyboxPropSetup.PropSet props)
         {
             Transform contents = Group(floor, "Contents");
             float midZ = -p.MainDepth * 0.5f;
@@ -250,6 +258,8 @@ namespace CloseTheDeal.Editor.Greybox
             {
                 case FloorKind.Lobby:
                     Box(contents, "Reception desk", new Vector3(0f, 0.55f, -p.MainDepth + 2f), new Vector3(5f, 1.1f, 0.8f));
+                    Marker(contents, "Chair", props.Chair, new Vector3(-6f, 0f, -3f), 90f);
+                    Marker(contents, "Chair", props.Chair, new Vector3(6f, 0f, -3f), -90f);
                     break;
                 case FloorKind.Checkpoint:
                     Box(contents, "Checkpoint marker", new Vector3(0f, 1.5f, midZ), new Vector3(1f, 3f, 1f));
@@ -257,51 +267,68 @@ namespace CloseTheDeal.Editor.Greybox
                 case FloorKind.Boardroom:
                     Box(contents, "Board table", new Vector3(0f, 0.4f, midZ), new Vector3(8f, 0.8f, 2.5f));
                     for (int i = 0; i < 6; i++)
-                        Box(contents, "Chair", new Vector3(-5f + i * 2f, 0.5f, midZ + (i % 2 == 0 ? 2f : -2f)), new Vector3(0.6f, 1f, 0.6f));
+                        Marker(contents, "Chair", props.Chair, new Vector3(-5f + i * 2f, 0f, midZ + (i % 2 == 0 ? 2f : -2f)), i % 2 == 0 ? 180f : 0f);
                     break;
                 case FloorKind.Roof:
                     Box(contents, "Roof access", new Vector3(p.Width * 0.5f - 3f, 1.5f, -p.MainDepth - 2f), new Vector3(3f, 3f, 3f));
                     break;
                 default:
-                    BuildOffice(contents, p, variant);
+                    BuildOffice(contents, p, variant, props);
                     break;
             }
         }
 
-        /// <summary>Three greybox office layouts: desk rows, two glass rooms, and a cluttered open plan.</summary>
-        static void BuildOffice(Transform contents, TowerProfile p, int variant)
+        /// <summary>Three greybox office layouts: desk rows (12 props), two glass rooms (4), a cluttered open plan (7).</summary>
+        static void BuildOffice(Transform contents, TowerProfile p, int variant, GreyboxPropSetup.PropSet props)
         {
             float midZ = -p.MainDepth * 0.5f;
             switch (variant)
             {
                 case 0:
-                    for (int row = 0; row < 2; row++)
-                        for (int i = 0; i < 4; i++)
-                            Box(contents, "Desk", new Vector3(-6f + i * 4f, 0.375f, -3f - row * 4f), new Vector3(1.6f, 0.75f, 0.8f));
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float x = -6f + i * 4f;
+                        Marker(contents, "Desk", props.Desk, new Vector3(x, 0f, -4f));
+                        Marker(contents, "Monitor", props.Monitor, new Vector3(x, 0.75f, -4.1f));
+                        Marker(contents, "Chair", props.Chair, new Vector3(x, 0f, -3f), 180f);
+                    }
                     break;
                 case 1:
-                    GlassRoom(contents, new Vector3(-5f, 0f, midZ), p);
-                    GlassRoom(contents, new Vector3(5f, 0f, midZ), p);
+                    GlassRoom(contents, new Vector3(-5f, 0f, midZ), props);
+                    GlassRoom(contents, new Vector3(5f, 0f, midZ), props);
                     break;
                 default:
-                    Box(contents, "Filing cabinets", new Vector3(-7f, 0.9f, -7f), new Vector3(0.6f, 1.8f, 3f));
-                    Box(contents, "Filing cabinets", new Vector3(7f, 0.9f, -7f), new Vector3(0.6f, 1.8f, 3f));
-                    Box(contents, "Desk", new Vector3(-3f, 0.375f, -2.5f), new Vector3(1.6f, 0.75f, 0.8f));
-                    Box(contents, "Desk", new Vector3(3f, 0.375f, -2.5f), new Vector3(1.6f, 0.75f, 0.8f));
+                    Marker(contents, "Cabinet", props.Cabinet, new Vector3(-8f, 0f, -7f), 90f);
+                    Marker(contents, "Cabinet", props.Cabinet, new Vector3(8f, 0f, -7f), -90f);
+                    Marker(contents, "Desk", props.Desk, new Vector3(-3f, 0f, -2.5f));
+                    Marker(contents, "Desk", props.Desk, new Vector3(3f, 0f, -2.5f));
+                    Marker(contents, "Chair", props.Chair, new Vector3(-3f, 0f, -1.5f), 180f);
+                    Marker(contents, "Chair", props.Chair, new Vector3(3f, 0f, -1.5f), 180f);
                     Box(contents, "Sofa", new Vector3(0f, 0.4f, -6f), new Vector3(2.4f, 0.8f, 0.9f));
-                    Box(contents, "Copier", new Vector3(0f, 0.6f, -8.5f), new Vector3(1.2f, 1.2f, 0.8f));
+                    Marker(contents, "Copier", props.Copier, new Vector3(0f, 0f, -8.5f));
                     break;
             }
         }
 
-        /// <summary>A 4 × 3 m room with three low-transparent walls and an open side toward the windows. Greybox: solid walls.</summary>
-        static void GlassRoom(Transform contents, Vector3 centre, TowerProfile p)
+        /// <summary>A 4 × 3 m room with three walls, open toward the windows, a fixed table and two loose chairs. Greybox: solid walls.</summary>
+        static void GlassRoom(Transform contents, Vector3 centre, GreyboxPropSetup.PropSet props)
         {
             const float roomW = 4f, roomD = 3f, glassH = 2.5f;
             Box(contents, "Glass back", centre + new Vector3(0f, glassH * 0.5f, -roomD * 0.5f), new Vector3(roomW, glassH, 0.1f));
             Box(contents, "Glass left", centre + new Vector3(-roomW * 0.5f, glassH * 0.5f, 0f), new Vector3(0.1f, glassH, roomD));
             Box(contents, "Glass right", centre + new Vector3(roomW * 0.5f, glassH * 0.5f, 0f), new Vector3(0.1f, glassH, roomD));
             Box(contents, "Meeting table", centre + new Vector3(0f, 0.375f, 0f), new Vector3(2f, 0.75f, 1f));
+            Marker(contents, "Chair", props.Chair, centre + new Vector3(-1.4f, 0f, 0f), 90f);
+            Marker(contents, "Chair", props.Chair, centre + new Vector3(1.4f, 0f, 0f), -90f);
+        }
+
+        static void Marker(Transform parent, string name, NetworkObject prefab, Vector3 position, float yawDegrees = 0f)
+        {
+            var marker = new GameObject(name + " marker");
+            marker.transform.SetParent(parent, false);
+            marker.transform.localPosition = position;
+            marker.transform.localRotation = Quaternion.Euler(0f, yawDegrees, 0f);
+            marker.AddComponent<PropMarker>().Prefab = prefab;
         }
 
         static Transform[] BuildSpawns(Transform floor, TowerProfile p)
@@ -324,18 +351,22 @@ namespace CloseTheDeal.Editor.Greybox
 
         static void EnsureTowerObject(TowerProfile profile)
         {
-            if (Object.FindAnyObjectByType<TowerBuilder>() != null)
-                return;
+            TowerBuilder builder = Object.FindAnyObjectByType<TowerBuilder>();
+            if (builder == null)
+            {
+                var go = new GameObject(TowerObjectName);
+                go.transform.position = TowerOrigin;
+                go.AddComponent<NetworkObject>();
+                builder = go.AddComponent<TowerBuilder>();
 
-            var go = new GameObject(TowerObjectName);
-            go.transform.position = TowerOrigin;
-            go.AddComponent<NetworkObject>();
-            var builder = go.AddComponent<TowerBuilder>();
+                var serialized = new SerializedObject(builder);
+                serialized.FindProperty("_profile").objectReferenceValue = profile;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                Debug.Log("[Tower] Placed the Tower object.");
+            }
 
-            var serialized = new SerializedObject(builder);
-            serialized.FindProperty("_profile").objectReferenceValue = profile;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-            Debug.Log("[Tower] Placed the Tower object.");
+            if (builder.GetComponent<PropSpawner>() == null)
+                builder.gameObject.AddComponent<PropSpawner>();
         }
 
         // ---- Helpers -------------------------------------------------------------------------

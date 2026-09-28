@@ -19,6 +19,12 @@ namespace CloseTheDeal.Tower
 
         public static TowerBuilder Instance { get; private set; }
 
+        /// <summary>Both buildings stand. Raised on every machine after its own local build.</summary>
+        public event Action OnBuilt;
+
+        /// <summary>The buildings are about to be destroyed for a rebuild.</summary>
+        public event Action OnCleared;
+
         [Tooltip("The knobs and templates this tower is built from. Read only at runtime.")]
         [SerializeField] TowerProfile _profile;
 
@@ -94,6 +100,7 @@ namespace CloseTheDeal.Tower
             _built = true;
             _builtSeed = seed;
             Debug.Log($"[Tower] Built two towers of {_layout.Count} floors from seed {seed}.");
+            OnBuilt?.Invoke();
         }
 
         void BuildBuilding(int team, uint seed)
@@ -141,6 +148,9 @@ namespace CloseTheDeal.Tower
 
         void Clear()
         {
+            if (_built)
+                OnCleared?.Invoke();
+
             for (int team = 0; team < TeamCount; team++)
             {
                 if (_buildings[team] != null)

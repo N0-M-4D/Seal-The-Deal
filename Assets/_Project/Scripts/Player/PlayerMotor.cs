@@ -107,6 +107,9 @@ namespace CloseTheDeal.Player
         [Tooltip("What the test blast can throw: the Player layer.")]
         [SerializeField] LayerMask _playerMask;
 
+        [Tooltip("Furniture the test blast can throw: the Prop layer.")]
+        [SerializeField] LayerMask _propMask;
+
         [Tooltip("The smoothed visual the camera follows. FishNet moves this child between ticks so motion never steps.")]
         [SerializeField] Transform _cameraTarget;
 
@@ -121,7 +124,7 @@ namespace CloseTheDeal.Player
         const byte MantleStepOnto = 1;
         const int HistoryLength = 256;
 
-        static readonly Collider[] BlastBuffer = new Collider[16];
+        static readonly Collider[] BlastBuffer = new Collider[32];
 
         /// <summary>The body this client controls, for local readouts. Null on a pure host with no player.</summary>
         public static PlayerMotor Local { get; private set; }
@@ -481,7 +484,7 @@ namespace CloseTheDeal.Player
                 ? hit.point
                 : origin + direction * _blast.Range;
 
-            Knockback.Explode(point, _blast, _playerMask, BlastBuffer);
+            Knockback.Explode(point, _blast, _playerMask, _propMask, BlastBuffer);
         }
 
         // ---- Helpers -------------------------------------------------------------------------

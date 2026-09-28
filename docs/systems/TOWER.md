@@ -39,6 +39,7 @@ Every floor is one prefab with a `FloorTemplate` component. All templates share 
 - **Service spine** (back 4 m): WC 3 m, STORE 5 m, STAIRS 8 m, UTIL 4 m across the width, each with a 1.2 m door from the main floor. WC and UTIL are fully walled: safe but blind, per the GDD.
 - **Stairs**: a switchback ramp in the STAIRS room rising 4 m to the next floor, two 7 m runs at 16° with a landing. The slab of the floor above has a hole over the STAIRS room. Ramps, not steps, because the player body is a physics capsule (PLAYER_MOVEMENT.md, level rules).
 - **Lobby** has no hole (nothing below) and carries the team's spawn markers. **Roof** has no ramp (nothing above) and a 1.2 m parapet.
+- **Loose furniture is not in the template.** A template holds `PropMarker`s where furniture stands; the host spawns the networked props there after building (PROPS.md). Anything that must never move stays as static boxes.
 
 ## Scripts
 

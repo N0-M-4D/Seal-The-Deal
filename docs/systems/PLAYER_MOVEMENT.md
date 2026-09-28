@@ -57,7 +57,7 @@ Prefab: `Player.prefab` is a 1.8 m capsule with the pivot at the feet, mass 80, 
 
 - **Stairs need ramp collision.** The body is a physics capsule with no step-up; a box-stepped staircase will stop it. Put an invisible ramp collider over every staircase.
 - Steps lower than the min ledge height (0.4 m) are walked over only if they are ramps too.
-- Anything climbable must be on a layer in the ground mask (everything solid, not players) and be static.
+- Anything climbable must be on a layer in the ground mask (everything solid, not players). Props are in it, so desks can be stood on and climbed; a moving prop under your feet is host-simulated, so expect a small correction if it slides.
 
 ## Tuning
 

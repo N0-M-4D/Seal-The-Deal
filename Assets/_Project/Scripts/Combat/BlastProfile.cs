@@ -27,6 +27,9 @@ namespace CloseTheDeal.Combat
         [Tooltip("How long a thrown player can't steer, in seconds from the hit.")]
         public float ControlLossSeconds = 0.7f;
 
+        [Tooltip("How fast furniture at the centre of the blast is thrown, in metres per second, before each prop's own resistance. 10 scatters chairs; 20 empties the room.")]
+        public float PropSpeed = 10f;
+
         [Tooltip("Height above the feet the blast pushes from, in metres. Chest height (0.9) tumbles; lower lifts more.")]
         public float PushHeight = 0.9f;
 
