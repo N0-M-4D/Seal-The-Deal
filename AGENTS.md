@@ -61,7 +61,7 @@ The store page submission on **7 Oct** cannot slip either: it starts the 14-day 
 
 - The v1 launch scope in [docs/GDD.md](docs/GDD.md) is the contract. Anything not on it is roadmap.
 - **If a request adds work outside v1 scope, say so in one line and ask** before building it. Don't refuse; the owner decides.
-- Prefer the smallest version that feels good in a playtest over the general system. Build for 2v2; don't generalise for 4v4 until the roadmap says so.
+- Prefer the smallest version that feels good in a playtest over the general system. Build for teams of 1–4 (up to 8 players); tune for 2v2 first, and test 4v4 before release. Free-for-all is roadmap; don't build for it yet.
 - Asset-store packs and existing Unity packages beat hand-rolled systems. Say which one you'd use before writing a replacement.
 - When a task is running long, report where it stands and what cutting it would cost, rather than going quiet.
 
@@ -77,7 +77,7 @@ Get this boundary wrong once and it costs days of desync hunting, so it is decid
 - Physics props are capped per floor, sleep when still, and freeze or unload on floors with no player nearby.
 - Every new networked thing states in its design notes **who owns it, what is synced, and at what rate**, before the code is written.
 - Anything that only works on the host (a missed RPC, a client-side collision deciding damage) is a bug even if it looks fine in a one-player test. **A networked feature is not done until it has been seen from a client.**
-- Budget bandwidth for 4 players on residential connections. Report anything that syncs per frame per object.
+- Budget bandwidth for 8 players on residential connections. Report anything that syncs per frame per object.
 
 Props and ragdoll sync is the biggest technical risk. If it isn't stable by the end of week 1, cut the prop count before cutting anything else.
 
@@ -165,7 +165,7 @@ The `commit-msg` hook in [tools/git-hooks/](tools/git-hooks/) strips these lines
 
 ## 10. Project map
 
-Two teams of two race up side-by-side skyscrapers, fighting through the windows. Unity 6000.4.8f1 (URP), FishNet + FishySteamworks, host-authoritative P2P over Steam.
+Two teams of 1–4 race up side-by-side skyscrapers, fighting through the windows. Unity 6000.4.8f1 (URP), FishNet + FishySteamworks, host-authoritative P2P over Steam.
 
 Everything of ours lives under `Assets/_Project/`. Update this section when it changes.
 

@@ -11,7 +11,7 @@ Two rival companies race up two skyscrapers side by side, shooting at each other
 - **The pitch:** you and a mate against another pair. Window wars across the street, zipline raids into the enemy tower, furniture and businessmen flying.
 - **The voice:** a deadpan secretary narrates every run. She is the game's personality and the thing people quote.
 - **The feel:** chaotic, not precise. Explosions are funny. Falling behind is a setup for a comeback, not a loss.
-- **Genre:** team vs team, short replayable runs of 10–15 minutes, built for friend groups and the people watching them.
+- **Genre:** team vs team, 1–4 players per team (up to 8 in a lobby), short replayable runs of about 12 minutes, built for friend groups and the people watching them. Free-for-all follows as an early update.
 - **Engine:** Unity 6, host-authoritative peer-to-peer over Steam.
 - **Working title:** Close the Deal (not final).
 
@@ -35,6 +35,23 @@ The first team to reach the roof wins. Each run follows the same loop:
 
 The tension comes from trading speed against exploration. Rushing upwards keeps you ahead. Exploring a floor finds the items that let a team skip floors or raid the enemy.
 
+### Match pacing (decided 2026-10-03)
+
+A match targets 12 minutes with a hard cap at 15. The tower is the lobby, 9 office floors with a checkpoint after every 3, the boardroom and the roof.
+
+| Stretch | Time per floor | Clock at the end |
+|---|---|---|
+| Lobby and kit | — | 0:45 |
+| Floors 1–3 (easy) | ~40 s | checkpoint at ~3:00 |
+| Floors 4–6 | ~60 s | checkpoint at ~6:30 |
+| Floors 7–9 (absurd) | ~75 s | checkpoint at ~10:30 |
+| Boardroom fight | ~2 min | roof at ~12:30 |
+
+- **Hard cap at 15:00.** The secretary closes the quarter, and the team that has climbed highest wins.
+- **Killed on a floor:** respawn on that floor after 5 seconds.
+- **Blown out of a window:** respawn at the team's last checkpoint. Leaving through the window is the big punishment, so the window shot is worth landing.
+- Each floor must hold a team for its time. Without a gate, the open stairs let a player sprint from the lobby to the roof in about 30 seconds. Locked doors that have to be broken down are that gate (see the standard floor layout).
+
 ## The buildings
 
 Each team gets its own skyscraper, built from random floor templates between fixed progression points. This gives replayability without the building feeling incoherent.
@@ -50,7 +67,7 @@ Each team gets its own skyscraper, built from random floor templates between fix
 
 ### Standard floor layout
 
-Every random floor uses the same shell (decided 2026-09-28):
+Every random floor uses the same shell (decided 2026-09-28; stairs moved to the centre 2026-10-03):
 
 ```
           RIVAL TOWER
@@ -59,25 +76,27 @@ Every random floor uses the same shell (decided 2026-09-28):
 │                               │
 │          MAIN FLOOR           │
 │                               │
-│    ┌───────┐     ┌───────┐    │
-│    │ GLASS │     │ GLASS │    │
-│    │ ROOM  │     │ ROOM  │    │
-│    └───────┘     └───────┘    │
+│ ┌───────┐  ╭──────╮ ┌───────┐ │
+│ │ GLASS │  │SPIRAL│ │ GLASS │ │
+│ │ ROOM  │  │STAIRS│ │ ROOM  │ │
+│ └───────┘  ╰──────╯ └───────┘ │
 │                               │
 ├──────── SERVICE SPINE ────────┤
-│ WC │ STORE │ STAIRS ↑ │ UTIL  │
+│   WC   │   STORE   │   UTIL   │
 └───────────────────────────────┘
 ```
 
 - **Main floor** faces the rival tower. It is always open: you can clearly see where every player on it is. Templates vary this area.
+- **Spiral stairs** are open and sit roughly in the middle of the main floor, in the same spot on every floor so they always line up. They are the centrepiece of the office: the rival can see and shoot anyone on them.
+- **Locked doors** block the way up and have to be broken down. They are what holds a team on each floor long enough for the pacing above.
 - **Glass rooms** show who is inside but give no protection.
-- **Service spine** sits at the back and is the same on every floor, so the stairs always line up and random floors stack cleanly.
+- **Service spine** sits at the back and is the same on every floor, so random floors stack cleanly.
 - **WC and UTIL** can be fully covered. A player inside is hidden from the rival, but in turn can't see what the rival is doing.
 - Floor depth is set in the greybox so the back of the main floor stays within cross-gap weapon range.
 
 ### Rules for templates
 
-- The building shell is not destructible. Only the contents are.
+- The building shell is not destructible. Only the contents and the locked doors are.
 - Every template uses standard window bays on the side that faces the other building, so sightlines always line up across the gap.
 - Players should generally be visible through the windows, especially on important floors. The main floor is always visible; only the service spine rooms may be fully hidden.
 - Both buildings use the same seed each run, so neither team gets an easier layout. (Proposed; see open questions.)
@@ -152,10 +171,11 @@ The host owns everything that matters, and clients only send input. This keeps a
 
 This is the Early Access build for 29 Oct. Anything not listed here is on the roadmap.
 
-- [ ] 2v2 teams, two buildings, Steam lobby and invites
+- [ ] Teams of 1–4 (up to 8 players), two buildings, Steam lobby and invites. Tuned for 2v2 first, 4v4 tested before release.
 - [ ] Movement, climbing and cross-gap shooting that feel good
-- [ ] 8–10 random floor templates with shared window bays
-- [ ] 1 checkpoint floor showing the rival team's progress
+- [ ] 8–10 random floor templates with shared window bays, an open spiral staircase and breakable locked doors
+- [ ] 3 checkpoint floors showing the rival team's progress
+- [ ] 15-minute match cap, respawn on the floor, window exits back to the checkpoint
 - [ ] Fixed boardroom final fight + roof win
 - [ ] Pistol/rifle, rocket launcher, throwable explosive, zipline gun
 - [ ] Physics props (capped) and explosion ragdolls
@@ -170,13 +190,13 @@ These come after launch, roughly in priority order. Update 1 should add the feat
 
 | Priority | Feature | Why |
 |---|---|---|
-| 1 | Elevators + access cards, with loud lift alert | Core comeback mechanic, cheap to add |
-| 2 | Roguelite upgrades: weird weapons, movement, explosives, zipline mods, corporate gear | Main replayability driver |
-| 3 | More floor templates and difficulty sections | Freshness per run |
-| 4 | Resource stealing on zipline raids | Deepens raids |
-| 5 | Cosmetics, outfits, emotes in the lobby | Social layer, retention |
-| 6 | Full secretary commentary system | Personality, marketing moments |
-| 7 | 3v3 / 4v4 | Bigger lobbies once netcode is proven |
+| 1 | Free-for-all mode: 8 players, 4 per tower, everyone hostile, first player to the roof wins | Second way to play once 4v4 is proven |
+| 2 | Elevators + access cards, with loud lift alert | Core comeback mechanic, cheap to add |
+| 3 | Roguelite upgrades: weird weapons, movement, explosives, zipline mods, corporate gear | Main replayability driver |
+| 4 | More floor templates and difficulty sections | Freshness per run |
+| 5 | Resource stealing on zipline raids | Deepens raids |
+| 6 | Cosmetics, outfits, emotes in the lobby | Social layer, retention |
+| 7 | Full secretary commentary system | Personality, marketing moments |
 
 ## Schedule and Steam milestones
 
@@ -200,13 +220,16 @@ Oro's catalogue is £5–£10 friend-group games with one odd hook. Pitch it as 
 - [ ] **Art direction.** Original art is decided; the look is not. Needs a one-line style statement and a reference board before any art is made. Blocks the store page screenshots and the pitch gif.
 - [ ] Confirm final name (working title: Close the Deal)
 - [x] ~~FishNet or Netcode for GameObjects + Steam transport?~~ FishNet + FishySteamworks.
-- [ ] Are the stairs in the service spine visible to the rival, or hidden like the WC and UTIL?
+- [x] ~~Are the stairs in the service spine visible to the rival?~~ The stairs are an open spiral in the middle of the main floor, fully visible.
 - [ ] First-person or third-person camera? The greybox uses third-person over the shoulder so knockback and ragdolls can be seen.
 - [ ] Does "climbing" mean more than mantling ledges (ladders, pipes, the outside of the building)?
 - [ ] Same seed for both buildings, or different layouts with balancing?
-- [ ] How many floors per run, and how long should a run take (target 10–15 min?)
-- [ ] Is respawn on death at the last checkpoint, or on the same floor after a delay?
+- [x] ~~How many floors per run, and how long should a run take?~~ 9 office floors, about 12 minutes, 15-minute cap. See match pacing.
+- [x] ~~Is respawn on death at the last checkpoint, or on the same floor after a delay?~~ Same floor after 5 s; a window exit sends you back to the checkpoint.
 - [ ] Can a zipline raider be sent back, for example by cutting the line?
 - [ ] Price point and Early Access length. Oro's range is £5–£10; a publisher pitch needs a number.
-- [ ] Can a run start 1v1 or 2v1, or does it always wait for four? Affects how often friend groups can actually play.
+- [x] ~~Can a run start 1v1 or 2v1?~~ Yes: 1–4 per team, up to 8 players.
+- [ ] Is there a locked door on every floor, or only on some? How is one broken: shooting, explosives, kicking, and how long does it take?
+- [ ] With up to 4 per team, does the team win when its first player reaches the roof, or does it need more of the team up there?
+- [ ] At the 15-minute cap, how is a tie on the same floor broken?
 - [ ] Is the Steamworks fee paid, and on what date? This sets the earliest release date.
