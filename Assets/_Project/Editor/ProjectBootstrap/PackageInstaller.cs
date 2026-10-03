@@ -25,7 +25,7 @@ namespace CloseTheDeal.Editor.ProjectBootstrap
 
         // FishySteamworks is not a Package Manager package: it ships no assembly definition, so
         // Unity never compiles it from Packages/. It is imported from its release .unitypackage
-        // into Assets/FishNet/Plugins/FishySteamworks instead. This removes the dead entry.
+        // and kept as a fork under Assets/_Project/Plugins/FishySteamworks. This removes the dead entry.
         static readonly string[] PackagesToRemove =
         {
             "com.firstgeargames.fishysteamworks",

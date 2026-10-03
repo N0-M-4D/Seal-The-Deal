@@ -46,7 +46,7 @@ If something breaks, note what you did, what you expected, and copy anything red
 ## Working on it
 
 - Open the repo root in Unity **6000.4.8f1**.
-- FishNet and Steamworks.NET come from GitHub through the Package Manager, so **git must be on your PATH** the first time Unity opens the project. Their versions are pinned in `Packages/manifest.json`. FishySteamworks is committed under `Assets/FishNet/Plugins/FishySteamworks/` (it cannot be a Package Manager package).
+- FishNet and Steamworks.NET come from GitHub through the Package Manager, so **git must be on your PATH** the first time Unity opens the project. Their versions are pinned in `Packages/manifest.json`. FishySteamworks is committed as a fork under `Assets/_Project/Plugins/FishySteamworks/` (it cannot be a Package Manager package; see its `FORK.md`).
 - Steam features need the **Steam client running**. Until we have our own app id, testing uses Valve's public test app (480); Steamworks.NET writes `steam_appid.txt` into the repo root on first open (it is git-ignored and must never ship).
 - Without Steam the game runs in **local test mode**: an editor and a build on one PC can play together. See [docs/systems/NETCODE.md](docs/systems/NETCODE.md).
 

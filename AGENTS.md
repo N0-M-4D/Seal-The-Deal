@@ -177,7 +177,8 @@ Everything of ours lives under `Assets/_Project/`. Update this section when it c
 - Editor tools: `Assets/_Project/Editor/`, menu-invoked only. `Close the Deal > Greybox > Set Up Scene` adds anything missing from the greybox scene and never rebuilds what exists. `Rebuild Game UI` regenerates the menu and HUD; `Capture UI Preview` renders them to PNGs (run it headlessly with graphics, i.e. the Editor binary with `-batchmode -quit` but not `-nographics`, plus `-previewOut <folder>`), so UI changes can be checked by eye before reporting them.
 - UI text is TextMeshPro; its essentials live in `Assets/TextMesh Pro/` (committed, vendor content).
 - FishNet writes `Assets/DefaultPrefabObjects.asset` itself (its list of networked prefabs). Commit it; never edit it.
-- Third-party packs and plugins stay where they import (`Assets/Plugins/`, vendor folders). Never edit vendor code in place; wrap it. Existing: `Assets/FishNet/Plugins/FishySteamworks/` (the Steam transport, from its release `.unitypackage`; FishNet and Steamworks.NET themselves are Package Manager packages).
+- Third-party packs and plugins stay where they import (`Assets/Plugins/`, vendor folders). Never edit vendor code in place; wrap it. FishNet and Steamworks.NET are Package Manager packages.
+- Forked vendor code: `Assets/_Project/Plugins/FishySteamworks/` (the Steam transport, unmaintained upstream). Its `FORK.md` lists every change from upstream; add to that list with any further patch, and mark the code site.
 - The one-off editor script [PackageInstaller.cs](Assets/_Project/Editor/ProjectBootstrap/PackageInstaller.cs) is how the pinned netcode packages were added; it only runs when invoked from the shell and is kept so a future package change follows the same route.
 - Docs: `docs/` (design), `docs/systems/` (per-system), `docs/notes/` and the boards in §12 (shared knowledge), `docs/archive/` (spent plans).
 

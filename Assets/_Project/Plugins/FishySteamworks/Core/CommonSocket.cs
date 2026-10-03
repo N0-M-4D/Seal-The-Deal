@@ -123,25 +123,18 @@ namespace FishySteamworks
         /// <returns></returns>
         protected EResult Send(HSteamNetConnection steamConnection, ArraySegment<byte> segment, byte channelId)
         {
-            /* Have to resize array to include channel index
-             * if array isn't large enough to fit it. This is because
-             * we don't know what channel data comes in on so
-             * the channel has to be packed into the data sent.
-             * Odds of the array having to resize are extremely low
-             * so while this is not ideal, it's still very low risk. */
-            if ((segment.Array.Length - 1) <= (segment.Offset + segment.Count))
-            {
-                byte[] arr = segment.Array;
-                Array.Resize(ref arr, arr.Length + 1);
-                arr[arr.Length - 1] = channelId;
-            }
-            //If large enough just increase the segment and set the channel byte.
-            else
-            {
-                segment.Array[segment.Offset + segment.Count] = channelId;
-            }
-            //Make a new segment so count is right.
-            segment = new ArraySegment<byte>(segment.Array, segment.Offset, segment.Count + 1);
+            /* The channel is packed into the data as a trailing byte, because the receiver
+             * cannot tell otherwise which channel a message came in on. The array is grown
+             * only when it has no room for that byte.
+             * Close the Deal patch (FORK.md, upstream issue 19): the original grew a copy
+             * of the array, wrote the channel byte into the copy, then built the segment
+             * from the original, so a full buffer either threw or sent a stale channel byte. */
+            byte[] array = segment.Array;
+            int end = segment.Offset + segment.Count;
+            if (end >= array.Length)
+                Array.Resize(ref array, end + 1);
+            array[end] = channelId;
+            segment = new ArraySegment<byte>(array, segment.Offset, segment.Count + 1);
 
             GCHandle pinnedArray = GCHandle.Alloc(segment.Array, GCHandleType.Pinned);
             IntPtr pData = pinnedArray.AddrOfPinnedObject() + segment.Offset;
