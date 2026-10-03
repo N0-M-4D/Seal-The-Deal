@@ -1,16 +1,27 @@
 # Close the Deal — Game Design Document
 
-Sep 28, 2026 · @Adam
+Oct 3, 2026 · @Adam
 
 ## Overview
 
+A man in a suit is blown out of a 14th-floor window by a rocket. As he falls past the glass, the secretary announces the quarterly figures.
+
 Two rival companies race up two skyscrapers side by side, shooting at each other through the windows. The first team to reach the roof wins. The game launches on Steam in Early Access on 29 Oct 2026.
 
-- **Hook:** window wars across the street, with zipline raids into the enemy tower.
-- **Genre:** co-op/PvP friend-slop, team vs team, short replayable runs.
-- **Vibe:** businessmen in suits, blown about by explosives, climbing increasingly ridiculous corporate floors. A deadpan secretary narrates it all.
+- **The pitch:** you and a mate against another pair. Window wars across the street, zipline raids into the enemy tower, furniture and businessmen flying.
+- **The voice:** a deadpan secretary narrates every run. She is the game's personality and the thing people quote.
+- **The feel:** chaotic, not precise. Explosions are funny. Falling behind is a setup for a comeback, not a loss.
+- **Genre:** team vs team, short replayable runs of 10–15 minutes, built for friend groups and the people watching them.
 - **Engine:** Unity 6, host-authoritative peer-to-peer over Steam.
 - **Working title:** Close the Deal (not final).
+
+### The three moments
+
+These are what a trailer, a store gif and a streamer clip are built from. Everything in v1 serves at least one of them.
+
+1. **The window shot.** A rocket through the glass, a ragdolled businessman out the other side, desks and monitors following him.
+2. **The zipline raid.** Fully exposed on the wire, then landing in the enemy's floor and wrecking it while they're still looking across the gap.
+3. **The secretary.** A flat corporate voice reading out a death, a checkpoint or a defeat as if it were a calendar reminder.
 
 ## Core loop and win condition
 
@@ -102,10 +113,25 @@ Open design point: how strongly these items should favour the trailing team, for
 
 ## Lobby and the secretary
 
-Each team starts in its company's reception area. The secretary is the game's main interface and its deadpan corporate voice.
+The secretary is the game's voice. She is the main interface, the narrator and the personality the marketing leans on. Every run starts, turns and ends on one of her lines.
+
+Each team starts in its company's reception area.
 
 - **v1:** a simple lobby where talking to the secretary starts the run and hands over starting kit. She has a small set of deadpan lines at the start, at checkpoints and on win or loss.
 - **Roadmap:** character customisation, outfits, cosmetics, emotes and weapon loadouts in the lobby; a full commentary system through the run; the secretary managing upgrades physically instead of through menus.
+
+## Art and sound direction
+
+All art is original. No asset-store packs ship in the game (decided 2026-10-03). Packs may still stand in during greybox work and are replaced before the store page screenshots are taken.
+
+The look itself is not yet set. It is the owner's call and is listed under open questions. Whatever it is, it has to:
+
+- Read instantly in a 20-second gif: two towers, a gap, suits, glass.
+- Make a ragdolled businessman funny from across the street, so silhouettes and exaggerated poses matter more than detail.
+- Survive 8–10 floor templates being dressed in weeks, so a small palette and a few repeatable prop families, not a hero asset per floor.
+- Give the secretary a face or a desk that can sit on the capsule art.
+
+Sound carries the comedy: glass, screenshake, a long scream on a window exit, and the secretary's flat delivery over all of it.
 
 ## Technical architecture
 
@@ -135,7 +161,7 @@ This is the Early Access build for 29 Oct. Anything not listed here is on the ro
 - [ ] Physics props (capped) and explosion ragdolls
 - [ ] Lobby with a secretary who starts the run and has a few deadpan lines
 - [ ] Results screen and rematch
-- [ ] Office art style using asset packs, plus audio and screenshake
+- [ ] Original office art style (characters, floor dressing, props, UI), plus audio and screenshake
 - [ ] Store page: capsule art, 5+ screenshots, description, and an optional short trailer
 
 ## Early Access roadmap
@@ -158,8 +184,20 @@ The store page deadline on 7 Oct is the one that can't slip. It starts the 14-da
 
 Steam rules: no release until 30 days after the app fee is paid; the Coming Soon page must be live for at least 14 days; store page and build reviews take 3–5 business days each, so allow 7. Sources: Steam Direct, Release process.
 
+### Publisher pitch
+
+Target: Oro Interactive. They sign on a moment, not a document, and say so publicly. Send things in this order and send this GDD only when asked for more.
+
+1. A 15–20 second gif of the window shot (moment 1), captured from the real art, not the greybox.
+2. The live Steam Coming Soon page.
+3. Half a page: the one-line pitch, the three moments, player count, price, EA date, team size.
+4. A playable build with a second machine ready for them to join.
+
+Oro's catalogue is £5–£10 friend-group games with one odd hook. Pitch it as "you and a mate against another pair", not as a shooter.
+
 ## Open questions
 
+- [ ] **Art direction.** Original art is decided; the look is not. Needs a one-line style statement and a reference board before any art is made. Blocks the store page screenshots and the pitch gif.
 - [ ] Confirm final name (working title: Close the Deal)
 - [x] ~~FishNet or Netcode for GameObjects + Steam transport?~~ FishNet + FishySteamworks.
 - [ ] Are the stairs in the service spine visible to the rival, or hidden like the WC and UTIL?
@@ -169,5 +207,6 @@ Steam rules: no release until 30 days after the app fee is paid; the Coming Soon
 - [ ] How many floors per run, and how long should a run take (target 10–15 min?)
 - [ ] Is respawn on death at the last checkpoint, or on the same floor after a delay?
 - [ ] Can a zipline raider be sent back, for example by cutting the line?
-- [ ] Price point and Early Access length
+- [ ] Price point and Early Access length. Oro's range is £5–£10; a publisher pitch needs a number.
+- [ ] Can a run start 1v1 or 2v1, or does it always wait for four? Affects how often friend groups can actually play.
 - [ ] Is the Steamworks fee paid, and on what date? This sets the earliest release date.
