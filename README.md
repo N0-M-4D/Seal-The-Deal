@@ -52,7 +52,7 @@ If something breaks, note what you did, what you expected, and copy anything red
 
 ## Repo notes
 
-- Repo rules for people and agents: [AGENTS.md](AGENTS.md).
+- Repo rules for people and agents: [AGENTS.md](AGENTS.md). Every AI tool reads it first; shared notes, decisions and the workboard live in `docs/` (see its §12).
 - Large binary assets go through Git LFS (see `.gitattributes`). Run `git lfs install` once per machine.
 - After cloning, install the commit hook that strips AI co-author lines: `cp tools/git-hooks/commit-msg .git/hooks/`.
 - Unity should use **Visible Meta Files** and **Force Text** asset serialization (the Unity 6 defaults).

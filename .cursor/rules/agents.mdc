@@ -1,0 +1,6 @@
+---
+description: Repo rules for Close the Deal
+alwaysApply: true
+---
+
+Read `AGENTS.md` at the repo root first and follow it. It is the single entry point for every agent: repo rules, project map, compile check, and the shared notes in `docs/`.
