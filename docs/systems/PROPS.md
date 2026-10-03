@@ -27,7 +27,7 @@ Bandwidth: sleeping props send nothing. A blast moving 15 props for two seconds 
 
 ## Level rules
 
-- **Cap: 16 props per floor.** The GDD asks for a fixed cap; this is it, enforced by whoever places markers (the greybox tool keeps well under it). Raise it only with a profiler open.
+- **Cap: 16 props per floor**, the locked door included (it uses a `PropMarker` and is spawned the same way, with no physics; see TOWER.md). The GDD asks for a fixed cap; this is it, enforced by whoever places markers (the greybox tool keeps well under it). Raise it only with a profiler open.
 - Props live on the **Prop** layer (7). They count as ground for the player, so desks are climbable and standable.
 - Heavy set dressing that should never move (the board table, the reception desk, glass walls) stays static geometry in the template, not a prop.
 

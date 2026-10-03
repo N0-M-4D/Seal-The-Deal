@@ -32,9 +32,9 @@ namespace CloseTheDeal.Tower
                 previousOffice = office;
                 into.Add(new FloorSpec { Kind = FloorKind.Office, TemplateIndex = office });
 
+                // A checkpoint can fall straight after the last office: the save before the boardroom.
                 sinceCheckpoint++;
-                bool lastOffice = i == profile.RandomFloors - 1;
-                if (profile.CheckpointEvery > 0 && sinceCheckpoint >= profile.CheckpointEvery && !lastOffice)
+                if (profile.CheckpointEvery > 0 && sinceCheckpoint >= profile.CheckpointEvery)
                 {
                     into.Add(new FloorSpec { Kind = FloorKind.Checkpoint });
                     sinceCheckpoint = 0;

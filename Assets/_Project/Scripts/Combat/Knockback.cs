@@ -1,12 +1,14 @@
 using CloseTheDeal.Player;
 using CloseTheDeal.Props;
+using CloseTheDeal.Tower;
 using UnityEngine;
 
 namespace CloseTheDeal.Combat
 {
     /// <summary>
-    /// Turns a blast at a point into knockback on every player and throw on every prop in
-    /// range. Host only: PlayerMotor.ApplyKnockback and Prop.Throw ignore the call anywhere else.
+    /// Turns a blast at a point into knockback on every player, throw on every prop and a hit
+    /// on every locked door in range. Host only: PlayerMotor.ApplyKnockback, Prop.Throw and
+    /// BreakableDoor.TakeBlast ignore the call anywhere else.
     /// </summary>
     public static class Knockback
     {
@@ -26,6 +28,13 @@ namespace CloseTheDeal.Combat
                     Vector3 chest = motor.transform.position + Vector3.up * blast.PushHeight;
                     motor.ApplyKnockback(ThrowVelocity(point, chest, blast, blast.Speed), blast.ControlLossSeconds);
                     playersHit++;
+                    continue;
+                }
+
+                BreakableDoor door = hit.GetComponentInParent<BreakableDoor>();
+                if (door != null)
+                {
+                    door.TakeBlast();
                     continue;
                 }
 

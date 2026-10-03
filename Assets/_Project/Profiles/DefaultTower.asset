@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 156a396c472fa714690fe93d1bbb9a1e, type: 3}
   m_Name: DefaultTower
   m_EditorClassIdentifier: Assembly-CSharp::CloseTheDeal.Tower.TowerProfile
-  RandomFloors: 8
+  RandomFloors: 9
   CheckpointEvery: 3
   SharedSeed: 1
-  FloorHeight: 4
-  Width: 20
-  MainDepth: 10
+  FloorHeight: 4.5
+  Width: 28
+  MainDepth: 14
   SpineDepth: 4
   Gap: 12
   Lobby: {fileID: 7418149380688390105, guid: 396cf11d9bfcaf540abef205ac924111, type: 3}
