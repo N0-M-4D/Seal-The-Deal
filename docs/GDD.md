@@ -186,7 +186,7 @@ Steam rules: no release until 30 days after the app fee is paid; the Coming Soon
 
 ### Publisher pitch
 
-Target: Oro Interactive. They sign on a moment, not a document, and say so publicly. Send things in this order and send this GDD only when asked for more.
+Target: Oro Interactive. **Parked until the MVP exists (decided 2026-10-03).** They sign on a moment, not a document, and say so publicly. When the time comes, send things in this order and send this GDD only when asked for more.
 
 1. A 15–20 second gif of the window shot (moment 1), captured from the real art, not the greybox.
 2. The live Steam Coming Soon page.
