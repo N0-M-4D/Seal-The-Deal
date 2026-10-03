@@ -47,15 +47,21 @@ namespace CloseTheDeal.Player
             /// <summary>Unit direction from the player's eye to whatever was under the crosshair. Only shots use it.</summary>
             public Vector3 Aim;
             public bool Sprint;
+            /// <summary>Jump is held down; letting go while rising cuts the jump short.</summary>
+            public bool JumpHeld;
+            /// <summary>-1 lean left, +1 lean right, 0 upright.</summary>
+            public sbyte Lean;
             public OneShots OneShots;
             uint _tick;
 
-            public MoveInput(Vector2 move, float yaw, Vector3 aim, bool sprint, OneShots oneShots)
+            public MoveInput(Vector2 move, float yaw, Vector3 aim, bool sprint, bool jumpHeld, sbyte lean, OneShots oneShots)
             {
                 Move = move;
                 Yaw = yaw;
                 Aim = aim;
                 Sprint = sprint;
+                JumpHeld = jumpHeld;
+                Lean = lean;
                 OneShots = oneShots;
                 _tick = 0;
             }
@@ -73,21 +79,40 @@ namespace CloseTheDeal.Player
             public uint StateTicksLeft;
             public Vector3 MantleTarget;
             public byte MantlePhase;
+            /// <summary>A throw the host has decided but the body's next tick has not applied yet.</summary>
+            public Vector3 PendingKnock;
+            public JumpTimers Jump;
+            /// <summary>-1 to +1: how far the player is leaning, and which way.</summary>
+            public float Lean;
             uint _tick;
 
-            public MoveReconcile(PredictionRigidbody body, MoveState state, uint stateTicksLeft, Vector3 mantleTarget, byte mantlePhase)
+            public MoveReconcile(PredictionRigidbody body, MoveState state, uint stateTicksLeft, Vector3 mantleTarget, byte mantlePhase, Vector3 pendingKnock, JumpTimers jump, float lean)
             {
                 Body = body;
                 State = state;
                 StateTicksLeft = stateTicksLeft;
                 MantleTarget = mantleTarget;
                 MantlePhase = mantlePhase;
+                PendingKnock = pendingKnock;
+                Jump = jump;
+                Lean = lean;
                 _tick = 0;
             }
 
             public void Dispose() { }
             public uint GetTick() => _tick;
             public void SetTick(uint value) => _tick = value;
+        }
+
+        /// <summary>The jump forgiveness windows, counted in ticks remaining so a reconcile restores them exactly.</summary>
+        public struct JumpTimers
+        {
+            /// <summary>Ticks left in which a jump still works after walking off an edge.</summary>
+            public byte Coyote;
+            /// <summary>Ticks left in which an early press still fires on landing.</summary>
+            public byte Buffer;
+            /// <summary>Still rising from a jump that letting go of Space can cut short.</summary>
+            public bool Rising;
         }
 
         struct TickPosition
@@ -116,6 +141,9 @@ namespace CloseTheDeal.Player
         [Tooltip("The smoothed visual the camera follows. FishNet moves this child between ticks so motion never steps.")]
         [SerializeField] Transform _cameraTarget;
 
+        [Tooltip("The part of the visual that tilts and slides when this player leans, pivoting at the hips, so other players see the peek. Built by the greybox tool; leave empty and leaning still works, it just isn't shown on the body.")]
+        [SerializeField] Transform _leanPivot;
+
         // ---- Runtime -------------------------------------------------------------------------
 
         const float GroundSlopeLimit = 50f;
@@ -126,6 +154,7 @@ namespace CloseTheDeal.Player
         const byte MantleRise = 0;
         const byte MantleStepOnto = 1;
         const int HistoryLength = 256;
+        const float LeanShotRadius = 0.1f;
 
         static readonly Collider[] BlastBuffer = new Collider[32];
 
@@ -142,6 +171,12 @@ namespace CloseTheDeal.Player
         uint _stateTicksLeft;
         Vector3 _mantleTarget;
         byte _mantlePhase;
+        Vector3 _pendingKnock;
+        JumpTimers _jump;
+        float _lean;
+        float _shownLean;
+        Vector3 _leanPivotRest;
+        Renderer[] _ownRenderers;
         uint _currentTick;
         MoveInput _lastTickedInput;
         bool _grounded;
@@ -149,6 +184,13 @@ namespace CloseTheDeal.Player
         public MoveState State => _state;
         public bool Grounded => _grounded;
         public float PlanarSpeed => Planar(_rigidbody.linearVelocity).magnitude;
+        public MovementProfile Profile => _profile;
+
+        /// <summary>-1 to +1: how far this player is leaning, and which way. Moves once per tick.</summary>
+        public float Lean => _lean;
+
+        /// <summary>Height of the eye above the feet, in metres. Shots leave from here; the first-person camera sits here.</summary>
+        public float EyeHeight => _blast.EyeHeight;
 
         /// <summary>How far the host's last correction moved this body from where it predicted itself, in metres.</summary>
         public float LastCorrectionMetres { get; private set; }
@@ -165,6 +207,9 @@ namespace CloseTheDeal.Player
             _input = GetComponent<PlayerInputReader>();
             _input.enabled = false;
             _body.Initialize(_rigidbody);
+            _ownRenderers = _cameraTarget.GetComponentsInChildren<Renderer>(true);
+            if (_leanPivot != null)
+                _leanPivotRest = _leanPivot.localPosition;
         }
 
         public override void OnStartNetwork()
@@ -180,8 +225,9 @@ namespace CloseTheDeal.Player
 
             Local = this;
             _input.enabled = true;
-            if (ThirdPersonCamera.Instance != null)
-                ThirdPersonCamera.Instance.Follow(_cameraTarget, _input);
+            ShowOwnBody(false);
+            if (PlayerCamera.Instance != null)
+                PlayerCamera.Instance.Follow(_cameraTarget, _input, this);
         }
 
         public override void OnStopClient()
@@ -192,8 +238,32 @@ namespace CloseTheDeal.Player
 
             if (Local == this)
                 Local = null;
-            if (ThirdPersonCamera.Instance != null)
-                ThirdPersonCamera.Instance.Release(_cameraTarget);
+            ShowOwnBody(true);
+            if (PlayerCamera.Instance != null)
+                PlayerCamera.Instance.Release(_cameraTarget);
+        }
+
+        /// <summary>The first-person camera sits inside the body, so the owner sees only its shadow.</summary>
+        void ShowOwnBody(bool visible)
+        {
+            var mode = visible ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+            foreach (Renderer part in _ownRenderers)
+                part.shadowCastingMode = mode;
+        }
+
+        /// <summary>Visual only: eases the hip pivot toward the ticked lean so every client sees the peek without stepping.</summary>
+        void Update()
+        {
+            if (_leanPivot == null || _shownLean == _lean)
+                return;
+
+            _shownLean = Mathf.MoveTowards(_shownLean, _lean, _profile.LeanSpeed * Time.deltaTime);
+            float tilt = _profile.LeanAngle * Mathf.Deg2Rad;
+            float headAbovePivot = EyeHeight - _leanPivotRest.y;
+            // Slide whatever the tilt alone doesn't cover, so the head lands where the owner's eye is.
+            float slide = _profile.LeanDistance - headAbovePivot * Mathf.Sin(tilt);
+            _leanPivot.localPosition = _leanPivotRest + Vector3.right * (slide * _shownLean);
+            _leanPivot.localRotation = Quaternion.Euler(0f, 0f, -_shownLean * _profile.LeanAngle);
         }
 
         // ---- Ticks ---------------------------------------------------------------------------
@@ -215,17 +285,17 @@ namespace CloseTheDeal.Player
             if (!IsOwner)
                 return default;
 
-            ThirdPersonCamera cam = ThirdPersonCamera.Instance;
+            PlayerCamera cam = PlayerCamera.Instance;
             float yaw = cam != null ? cam.Yaw : _rigidbody.rotation.eulerAngles.y;
-            Vector3 eye = _rigidbody.position + Vector3.up * _blast.EyeHeight;
+            Vector3 eye = EyePosition(yaw);
             Vector3 aim = cam != null ? cam.AimDirectionFrom(eye) : Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
             var oneShots = new OneShots { Jump = _input.ConsumeJump(), Attack = _input.ConsumeAttack() };
-            return new MoveInput(_input.Move, yaw, aim, _input.Sprint, oneShots);
+            return new MoveInput(_input.Move, yaw, aim, _input.Sprint, _input.JumpHeld, _input.Lean, oneShots);
         }
 
         public override void CreateReconcile()
         {
-            RunReconcile(new MoveReconcile(_body, _state, _stateTicksLeft, _mantleTarget, _mantlePhase));
+            RunReconcile(new MoveReconcile(_body, _state, _stateTicksLeft, _mantleTarget, _mantlePhase, _pendingKnock, _jump, _lean));
         }
 
         [Replicate]
@@ -237,6 +307,10 @@ namespace CloseTheDeal.Player
 
             float dt = (float)TimeManager.TickDelta;
             _grounded = ProbeGround();
+
+            // Remember the press for a moment, so one made just before landing still jumps.
+            if (input.OneShots.Jump)
+                _jump.Buffer = (byte)(TicksFor(_profile.JumpBufferTime) + 1);
 
             switch (_state)
             {
@@ -250,9 +324,15 @@ namespace CloseTheDeal.Player
             float yaw = Mathf.MoveTowardsAngle(_rigidbody.rotation.eulerAngles.y, input.Yaw, _profile.TurnSpeed * dt);
             _body.MoveRotation(Quaternion.Euler(0f, yaw, 0f));
 
+            // Fires from the lean the owner aimed with, before this tick moves it.
             if (input.OneShots.Attack && IsServerStarted)
                 FireTestBlast(input.Aim, input.Yaw);
 
+            LeanStep(input, dt);
+            if (_jump.Buffer > 0)
+                _jump.Buffer--;
+
+            ApplyPendingKnock();
             _body.Simulate();
         }
 
@@ -264,6 +344,9 @@ namespace CloseTheDeal.Player
             _stateTicksLeft = data.StateTicksLeft;
             _mantleTarget = data.MantleTarget;
             _mantlePhase = data.MantlePhase;
+            _pendingKnock = data.PendingKnock;
+            _jump = data.Jump;
+            _lean = data.Lean;
 
             if (!IsServerStarted)
                 MeasureCorrection(data.GetTick());
@@ -319,18 +402,27 @@ namespace CloseTheDeal.Player
                 return;
             }
 
+            _jump.Coyote = TicksFor(_profile.CoyoteTime);
+
             Vector3 wish = WishVelocity(input);
             float rate = wish.sqrMagnitude > 0.01f ? _profile.GroundAcceleration : _profile.GroundBraking;
             Vector3 planar = Vector3.MoveTowards(Planar(_rigidbody.linearVelocity), wish, rate * dt);
 
-            float vertical = Mathf.Min(_rigidbody.linearVelocity.y, 0f);
-            if (input.OneShots.Jump)
+            if (_jump.Buffer > 0)
             {
-                vertical = JumpSpeed();
-                Enter(MoveState.Airborne);
+                Jump(planar);
+                return;
             }
 
-            _body.Velocity(new Vector3(planar.x, vertical, planar.z));
+            _body.Velocity(new Vector3(planar.x, Mathf.Min(_rigidbody.linearVelocity.y, 0f), planar.z));
+        }
+
+        /// <summary>Launches at full jump speed, keeping the planar speed the player already has.</summary>
+        void Jump(Vector3 planar)
+        {
+            Enter(MoveState.Airborne);
+            _jump = new JumpTimers { Rising = true };
+            _body.Velocity(new Vector3(planar.x, JumpSpeed(), planar.z));
         }
 
         void AirborneStep(MoveInput input, float dt)
@@ -343,6 +435,16 @@ namespace CloseTheDeal.Player
                 return;
             }
 
+            // Coyote time: just walked off an edge, so a jump still counts as from the floor.
+            if (_jump.Buffer > 0 && _jump.Coyote > 0)
+            {
+                Jump(Planar(velocity));
+                return;
+            }
+
+            if (_jump.Coyote > 0)
+                _jump.Coyote--;
+
             if (TryStartMantle(input))
                 return;
 
@@ -351,8 +453,28 @@ namespace CloseTheDeal.Player
             if (wish.sqrMagnitude > 0.01f)
                 planar = Vector3.MoveTowards(planar, wish, _profile.AirAcceleration * dt);
 
-            _body.Velocity(new Vector3(planar.x, ClampFall(velocity.y), planar.z));
-            AddExtraGravity();
+            float vertical = CutJumpOnRelease(velocity.y, input.JumpHeld);
+            _body.Velocity(new Vector3(planar.x, ClampFall(vertical), planar.z));
+            AddExtraGravity(vertical > 0f ? _profile.AirGravityMultiplier : _profile.FallGravityMultiplier);
+        }
+
+        /// <summary>Letting go of jump while still rising keeps only part of the upward speed: a tap hops, a hold leaps. Once per jump.</summary>
+        float CutJumpOnRelease(float vertical, bool jumpHeld)
+        {
+            if (!_jump.Rising)
+                return vertical;
+
+            if (vertical <= 0f)
+            {
+                _jump.Rising = false;
+                return vertical;
+            }
+
+            if (jumpHeld)
+                return vertical;
+
+            _jump.Rising = false;
+            return vertical * _profile.JumpReleaseKeep;
         }
 
         void MantleStep(float dt)
@@ -406,7 +528,7 @@ namespace CloseTheDeal.Player
             else
             {
                 _body.Velocity(new Vector3(velocity.x, ClampFall(velocity.y), velocity.z));
-                AddExtraGravity();
+                AddExtraGravity(_profile.AirGravityMultiplier);
             }
 
             if (_stateTicksLeft > 0)
@@ -418,15 +540,52 @@ namespace CloseTheDeal.Player
         /// <summary>
         /// Throws the player and takes their control away for a while. Host only: the host
         /// is the sole judge of hits, and the result reaches everyone through the reconcile.
+        /// The throw is held until this body's own tick applies it: a blast usually lands
+        /// during another player's tick, and any force queued then would be cleared by this
+        /// body's next velocity write before physics ever saw it.
         /// </summary>
         public void ApplyKnockback(Vector3 velocityChange, float controlLossSeconds)
         {
             if (!IsServerStarted)
                 return;
 
-            _body.AddForce(velocityChange, ForceMode.VelocityChange);
+            _pendingKnock += velocityChange;
             Enter(MoveState.Knocked);
             _stateTicksLeft = System.Math.Max(1u, TimeManager.TimeToTicks(controlLossSeconds, TickRounding.RoundUp));
+        }
+
+        /// <summary>Last thing before the physics step, so no velocity write this tick can clear it.</summary>
+        void ApplyPendingKnock()
+        {
+            if (_pendingKnock == Vector3.zero)
+                return;
+
+            _body.AddForce(_pendingKnock, ForceMode.VelocityChange);
+            _pendingKnock = Vector3.zero;
+        }
+
+        // ---- Lean ----------------------------------------------------------------------------
+
+        /// <summary>Leans toward the held side at the profile pace; only on the floor, so a jump or a blast straightens you up.</summary>
+        void LeanStep(MoveInput input, float dt)
+        {
+            float target = _state == MoveState.Grounded ? Mathf.Clamp(input.Lean, -1, 1) : 0f;
+            _lean = Mathf.MoveTowards(_lean, target, _profile.LeanSpeed * dt);
+        }
+
+        /// <summary>The eye, slid sideways by the current lean but never through a wall. Shots leave from here.</summary>
+        Vector3 EyePosition(float yaw)
+        {
+            Vector3 head = _rigidbody.position + Vector3.up * EyeHeight;
+            float reach = _profile.LeanDistance * Mathf.Abs(_lean);
+            if (reach < 0.001f)
+                return head;
+
+            Vector3 direction = Quaternion.Euler(0f, yaw, 0f) * Vector3.right * Mathf.Sign(_lean);
+            if (Physics.SphereCast(head, LeanShotRadius, direction, out RaycastHit wall, reach, _groundMask, QueryTriggerInteraction.Ignore))
+                reach = wall.distance;
+
+            return head + direction * reach;
         }
 
         // ---- Mantling ------------------------------------------------------------------------
@@ -483,7 +642,7 @@ namespace CloseTheDeal.Player
         /// <summary>Fires from the eye toward what the owner had under the crosshair; a missing aim falls back to straight ahead.</summary>
         void FireTestBlast(Vector3 aim, float yaw)
         {
-            Vector3 origin = _rigidbody.position + Vector3.up * _blast.EyeHeight;
+            Vector3 origin = EyePosition(yaw);
             Vector3 direction = aim.sqrMagnitude > 0.5f ? aim.normalized : Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
             int mask = _groundMask | _playerMask;
 
@@ -529,10 +688,19 @@ namespace CloseTheDeal.Player
             return _profile.MaxFallSpeed > 0f ? Mathf.Max(verticalSpeed, -_profile.MaxFallSpeed) : verticalSpeed;
         }
 
-        void AddExtraGravity()
+        /// <summary>Tops Unity's own gravity up to the given multiple of it.</summary>
+        void AddExtraGravity(float multiplier)
         {
-            if (_profile.AirGravityMultiplier > 1f)
-                _body.AddForce(Physics.gravity * (_profile.AirGravityMultiplier - 1f), ForceMode.Acceleration);
+            if (multiplier > 1f)
+                _body.AddForce(Physics.gravity * (multiplier - 1f), ForceMode.Acceleration);
+        }
+
+        byte TicksFor(float seconds)
+        {
+            if (seconds <= 0f)
+                return 0;
+
+            return (byte)System.Math.Min(TimeManager.TimeToTicks(seconds, TickRounding.RoundUp), 254u);
         }
 
         void Enter(MoveState next)
@@ -540,6 +708,10 @@ namespace CloseTheDeal.Player
             _state = next;
             _stateTicksLeft = 0;
             _mantlePhase = MantleRise;
+            _jump.Rising = false;
+            // Only walking off an edge keeps coyote time; a blast or a climb never hands out a free jump.
+            if (next != MoveState.Airborne)
+                _jump.Coyote = 0;
         }
 
         static Vector3 Planar(Vector3 v) => new(v.x, 0f, v.z);

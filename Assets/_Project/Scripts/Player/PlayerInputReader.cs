@@ -13,7 +13,7 @@ namespace CloseTheDeal.Player
     [DisallowMultipleComponent]
     public sealed class PlayerInputReader : MonoBehaviour
     {
-        [Tooltip("The Input System actions asset. Uses its Player map: Move, Look, Sprint, Jump, Attack.")]
+        [Tooltip("The Input System actions asset. Uses its Player map: Move, Look, Sprint, Jump, Attack, Lean.")]
         [SerializeField] InputActionAsset _actions;
 
         [Tooltip("Smallest stick push that counts as movement, as a fraction of full tilt. 0.1 ignores stick drift; raise it if a pad creeps.")]
@@ -25,6 +25,7 @@ namespace CloseTheDeal.Player
         InputAction _sprint;
         InputAction _jump;
         InputAction _attack;
+        InputAction _lean;
         bool _jumpLatched;
         bool _attackLatched;
 
@@ -49,6 +50,22 @@ namespace CloseTheDeal.Player
         public bool Sprint => Captured && _sprint.IsPressed();
         public Vector2 LookDelta => Captured ? _look.ReadValue<Vector2>() : Vector2.zero;
 
+        /// <summary>True while jump is held, so letting go early can cut a jump short.</summary>
+        public bool JumpHeld => Captured && _jump.IsPressed();
+
+        /// <summary>-1 leaning left, +1 leaning right, 0 upright. Both held cancel out.</summary>
+        public sbyte Lean
+        {
+            get
+            {
+                if (!Captured)
+                    return 0;
+
+                float axis = _lean.ReadValue<float>();
+                return axis < -0.5f ? (sbyte)-1 : axis > 0.5f ? (sbyte)1 : (sbyte)0;
+            }
+        }
+
         void Awake()
         {
             _map = _actions.FindActionMap("Player", true);
@@ -57,6 +74,7 @@ namespace CloseTheDeal.Player
             _sprint = _map.FindAction("Sprint", true);
             _jump = _map.FindAction("Jump", true);
             _attack = _map.FindAction("Attack", true);
+            _lean = _map.FindAction("Lean", true);
         }
 
         void OnEnable()

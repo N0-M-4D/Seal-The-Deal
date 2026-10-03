@@ -17,9 +17,18 @@ MonoBehaviour:
   GroundAcceleration: 45
   GroundBraking: 60
   KnockedBraking: 15
-  AirAcceleration: 12
-  JumpHeight: 1.3
+  TurnSpeed: 720
+  AirAcceleration: 20
+  JumpHeight: 1.6
   AirGravityMultiplier: 2
+  MaxFallSpeed: 30
+  FallGravityMultiplier: 3
+  JumpReleaseKeep: 0.5
+  CoyoteTime: 0.1
+  JumpBufferTime: 0.12
+  LeanDistance: 0.45
+  LeanAngle: 12
+  LeanSpeed: 6
   MaxLedgeHeight: 1.6
   MinLedgeHeight: 0.4
   LedgeReach: 0.7

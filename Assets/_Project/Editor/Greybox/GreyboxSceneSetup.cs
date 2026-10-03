@@ -42,6 +42,7 @@ namespace CloseTheDeal.Editor.Greybox
         const float BodyHeight = 1.8f;
         const float BodyRadius = 0.35f;
         const float BodyMass = 80f;
+        const float HipHeight = 0.9f;
 
         [MenuItem("Close the Deal/Greybox/Set Up Scene")]
         public static void SetUpScene()
@@ -55,7 +56,7 @@ namespace CloseTheDeal.Editor.Greybox
 
             EnsureFloorAndCamera();
             EnsureObstacles();
-            EnsureOrbitCamera();
+            EnsurePlayerCamera();
             Transform spawnA = EnsureSpawn("SpawnA", new Vector3(-2f, 0.1f, 0f));
             Transform spawnB = EnsureSpawn("SpawnB", new Vector3(2f, 0.1f, 0f));
             EnsureNetworkManager(playerPrefab, spawnA, spawnB);
@@ -127,7 +128,7 @@ namespace CloseTheDeal.Editor.Greybox
             body.interpolation = RigidbodyInterpolation.None;
             body.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-            Transform graphics = BuildGraphics(root.transform);
+            Transform graphics = BuildGraphics(root.transform, out Transform leanPivot);
 
             var networkObject = root.AddComponent<NetworkObject>();
             var input = root.AddComponent<PlayerInputReader>();
@@ -150,6 +151,7 @@ namespace CloseTheDeal.Editor.Greybox
             SetInt(serializedMotor, "_playerMask", 1 << PlayerLayer);
             SetInt(serializedMotor, "_propMask", 1 << PropLayer);
             SetReference(serializedMotor, "_cameraTarget", graphics);
+            SetReference(serializedMotor, "_leanPivot", leanPivot);
             serializedMotor.ApplyModifiedPropertiesWithoutUndo();
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
@@ -158,26 +160,34 @@ namespace CloseTheDeal.Editor.Greybox
             return prefab.GetComponent<NetworkObject>();
         }
 
-        /// <summary>A capsule body with a small block for a nose, so facing reads in greybox.</summary>
-        static Transform BuildGraphics(Transform root)
+        /// <summary>
+        /// A capsule body with a small block for a nose, so facing reads in greybox. Both hang
+        /// off a pivot at hip height that the motor tilts when the player leans.
+        /// </summary>
+        static Transform BuildGraphics(Transform root, out Transform leanPivot)
         {
             var graphics = new GameObject("Graphics") { layer = PlayerLayer };
             graphics.transform.SetParent(root, false);
+
+            var lean = new GameObject("Lean") { layer = PlayerLayer };
+            lean.transform.SetParent(graphics.transform, false);
+            lean.transform.localPosition = new Vector3(0f, HipHeight, 0f);
+            leanPivot = lean.transform;
 
             GameObject capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             capsule.name = "Body";
             capsule.layer = PlayerLayer;
             Object.DestroyImmediate(capsule.GetComponent<Collider>());
-            capsule.transform.SetParent(graphics.transform, false);
-            capsule.transform.localPosition = new Vector3(0f, BodyHeight * 0.5f, 0f);
+            capsule.transform.SetParent(leanPivot, false);
+            capsule.transform.localPosition = new Vector3(0f, BodyHeight * 0.5f - HipHeight, 0f);
             capsule.transform.localScale = new Vector3(BodyRadius * 2f, BodyHeight * 0.5f, BodyRadius * 2f);
 
             GameObject nose = GameObject.CreatePrimitive(PrimitiveType.Cube);
             nose.name = "Nose";
             nose.layer = PlayerLayer;
             Object.DestroyImmediate(nose.GetComponent<Collider>());
-            nose.transform.SetParent(graphics.transform, false);
-            nose.transform.localPosition = new Vector3(0f, BodyHeight * 0.8f, BodyRadius + 0.05f);
+            nose.transform.SetParent(leanPivot, false);
+            nose.transform.localPosition = new Vector3(0f, BodyHeight * 0.8f - HipHeight, BodyRadius + 0.05f);
             nose.transform.localScale = new Vector3(0.15f, 0.15f, 0.2f);
 
             return graphics.transform;
@@ -251,32 +261,11 @@ namespace CloseTheDeal.Editor.Greybox
             return block;
         }
 
-        static void EnsureOrbitCamera()
+        static void EnsurePlayerCamera()
         {
             Camera cam = Camera.main;
-            if (cam == null)
-                return;
-
-            ThirdPersonCamera orbit = cam.GetComponent<ThirdPersonCamera>();
-            if (orbit == null)
-            {
-                cam.gameObject.AddComponent<ThirdPersonCamera>();
-                return;
-            }
-
-            // The first camera was saved with distance 5 and pivot 1.4, before over-the-shoulder.
-            // Move those to the new defaults, but only while nobody has tuned them.
-            var serialized = new SerializedObject(orbit);
-            MoveIfUntouched(serialized, "_distance", 5f, 4f);
-            MoveIfUntouched(serialized, "_pivotHeight", 1.4f, 1.5f);
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        static void MoveIfUntouched(SerializedObject so, string field, float oldDefault, float newDefault)
-        {
-            SerializedProperty p = Find(so, field);
-            if (p != null && Mathf.Approximately(p.floatValue, oldDefault))
-                p.floatValue = newDefault;
+            if (cam != null && cam.GetComponent<PlayerCamera>() == null)
+                cam.gameObject.AddComponent<PlayerCamera>();
         }
 
         static Transform EnsureSpawn(string name, Vector3 position)

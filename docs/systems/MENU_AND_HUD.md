@@ -32,6 +32,6 @@ Flat dark card, amber for the one primary action per state, white text with a mu
 
 ## Known limitations
 
-- No settings: mouse sensitivity, volume, resolution and key rebinding don't exist yet. Sensitivity is on the Main Camera's ThirdPersonCamera in the Inspector.
+- No settings: mouse sensitivity, volume, resolution and key rebinding don't exist yet. Sensitivity is on the Main Camera's PlayerCamera in the Inspector.
 - No player names over heads and no team indicator yet.
 - Square greybox corners; no motion on open and close.

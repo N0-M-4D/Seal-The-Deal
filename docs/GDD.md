@@ -221,7 +221,7 @@ Oro's catalogue is £5–£10 friend-group games with one odd hook. Pitch it as 
 - [ ] Confirm final name (working title: Close the Deal)
 - [x] ~~FishNet or Netcode for GameObjects + Steam transport?~~ FishNet + FishySteamworks.
 - [x] ~~Are the stairs in the service spine visible to the rival?~~ The stairs are an open spiral in the middle of the main floor, fully visible.
-- [ ] First-person or third-person camera? The greybox uses third-person over the shoulder so knockback and ragdolls can be seen.
+- [x] ~~First-person or third-person camera?~~ First person, with Q/E lean (decided 2026-10-03). Your own blast flights are now seen from inside; other players' flights are still seen in full.
 - [ ] Does "climbing" mean more than mantling ledges (ladders, pipes, the outside of the building)?
 - [ ] Same seed for both buildings, or different layouts with balancing?
 - [x] ~~How many floors per run, and how long should a run take?~~ 9 office floors, about 12 minutes, 15-minute cap. See match pacing.

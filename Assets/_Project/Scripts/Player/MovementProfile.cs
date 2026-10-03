@@ -34,11 +34,34 @@ namespace CloseTheDeal.Player
         [Tooltip("Jump height in metres on flat ground.")]
         public float JumpHeight = 1.3f;
 
-        [Tooltip("Extra pull-down while airborne, as a multiple of normal gravity. 1 = floaty real-world arcs; 2 = snappy game jumps. Also shapes how far a blast throws you.")]
+        [Tooltip("Pull-down while rising from a jump and all through a blast flight, as a multiple of normal gravity. 1 = floaty real-world arcs; 2 = snappy game jumps. Also shapes how far a blast throws you. The way down from a jump uses Fall Gravity Multiplier instead.")]
         public float AirGravityMultiplier = 2f;
 
         [Tooltip("Fastest a player can fall, in metres per second. Caps long drops and big blasts. 30 is a hard but readable fall; 0 = no cap.")]
         public float MaxFallSpeed = 30f;
+
+        [Header("Jump feel")]
+        [Tooltip("Pull-down on the way down from a jump, as a multiple of normal gravity. Replaces the air gravity once the jump peaks. Equal to air gravity = symmetric arc; higher = quick, punchy landings. Doesn't change blasts.")]
+        public float FallGravityMultiplier = 3f;
+
+        [Tooltip("Fraction of upward speed kept when Space is let go early, so a tap is a short hop and a hold is a full jump. 1 = every jump is full height; 0.5 = a tap reaches about a quarter of the height.")]
+        [Range(0f, 1f)] public float JumpReleaseKeep = 0.5f;
+
+        [Tooltip("How long after walking off an edge a jump still works, in seconds. 0.1 forgives a late press without feeling like a double jump.")]
+        public float CoyoteTime = 0.1f;
+
+        [Tooltip("How early before landing a jump press is remembered and fired on touchdown, in seconds. 0.12 makes chained hops easy; 0 = must press on the ground.")]
+        public float JumpBufferTime = 0.12f;
+
+        [Header("Lean")]
+        [Tooltip("How far the head slides sideways at full lean, in metres. 0.45 clears a door frame from a body tucked behind it. Shots leave from the leaned eye.")]
+        public float LeanDistance = 0.45f;
+
+        [Tooltip("How far the view tilts at full lean, in degrees. 12 reads clearly; above 20 gets disorienting.")]
+        public float LeanAngle = 12f;
+
+        [Tooltip("How fast the lean goes in and out, in full leans per second. 6 = about a sixth of a second to full lean.")]
+        public float LeanSpeed = 6f;
 
         [Header("Climbing")]
         [Tooltip("Highest ledge the player can climb onto, in metres above their feet. Keep below the player's height (1.8) or they climb things they can't reach.")]
