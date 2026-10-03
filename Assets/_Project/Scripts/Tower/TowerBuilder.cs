@@ -132,6 +132,11 @@ namespace CloseTheDeal.Tower
                 if (spec.Kind == FloorKind.Lobby)
                     _spawns[team] = floor.SpawnPoints;
             }
+
+            // Floors are instantiated at runtime, so Unity's build-time static batching never
+            // sees them: without this every box is its own draw call, again per shadow cascade.
+            // Loose furniture is spawned separately by the host and is not part of this.
+            StaticBatchingUtility.Combine(root);
         }
 
         FloorTemplate TemplateFor(FloorSpec spec)
