@@ -54,8 +54,9 @@ namespace CloseTheDeal.Net
                 IsReady = false;
             }
 
+            // Not an error: the lobby falls back to local test mode without Steam.
             if (!IsReady)
-                Debug.LogError("[Steam] SteamAPI.Init failed. Is Steam running and signed in, and is steam_appid.txt next to the executable (or in the project root in the editor)?");
+                Debug.LogWarning("[Steam] Steam is not available, so the lobby uses local test mode. For Steam, start Steam and sign in, and keep steam_appid.txt next to the executable (or in the project root in the editor).");
             else
                 Debug.Log($"[Steam] Ready as {SteamFriends.GetPersonaName()} ({SteamUser.GetSteamID()}).");
         }

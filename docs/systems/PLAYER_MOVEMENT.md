@@ -6,7 +6,7 @@
 
 You walk and sprint with WASD and Shift, jump with Space, and look with the mouse; the body faces where the camera looks.
 Jump at a ledge up to chest height and you grab it and climb over: desks, sills, the edge of a floor.
-A blast throws you through the air and you lose control for a moment. Left click fires a **test blast** at whatever is ahead, so knockback can be felt before any real weapon exists.
+A blast throws you through the air and you lose control for a moment. Left click fires a **test blast** at whatever is under the crosshair, so knockback can be felt before any real weapon exists. The camera sits over your right shoulder so the crosshair is never on your own back, and slides in when a wall is behind you.
 Your own moves show the instant you press them. The host is still the judge: if it disagrees, you are nudged to where the host says you are.
 
 ## Who owns what (AGENTS.md §3)
@@ -17,6 +17,7 @@ Your own moves show the instant you press them. The host is still the judge: if 
 | Player input (move, yaw, sprint, jump, blast) | Owning client | Client → host, ~20 bytes | Every tick, 60/s |
 | Knockback | **Host only.** Clients never decide a hit | Arrives as part of the body state | On hit |
 | Camera | Local only | Nothing | — |
+| Aim | Owning client: direction from the eye to whatever is under its crosshair | Inside the input, 12 B | Every tick |
 
 Bandwidth: with 4 players, the host sends each client 4 × ~70 B × 60/s ≈ **17 KB/s**. Fine on residential lines. If it ever matters, reconciles can be sent less often than every tick.
 
@@ -38,7 +39,7 @@ Timed states count **ticks remaining** rather than an end tick, so a reconcile r
 | Mantling | airborne, moving into a wall whose top is between the min and max ledge height, with room to stand | rises to ledge height, then moves onto it, at a fixed speed; gravity ignored | reaches the stand point, or times out at 2× the mantle duration |
 | Knocked | the host applies a knockback | no steering; extra gravity; skids to a stop on the floor | the control-loss time passes, then Grounded or Airborne |
 
-The blast is a host-only raycast from eye height along the camera yaw, up to the profile range; it explodes where it first hits. Everyone inside the radius, the shooter included, is thrown away from the point with some lift, weaker toward the edge.
+The blast is a host-only raycast from eye height along the aim direction the client sent (eye to the point under its crosshair), up to the profile range; it explodes where it first hits. The client chooses where it aims; the host alone decides what that hits. Everyone inside the radius, the shooter included, is thrown away from the point with some lift, weaker toward the edge.
 
 ## Scripts
 
@@ -47,7 +48,7 @@ Under [Assets/_Project/Scripts/](../../Assets/_Project/Scripts/):
 - `Player/PlayerMotor.cs`: the predicted state machine. Replicate = one tick of the states above; Reconcile = body + state from the host. `ApplyKnockback` is the only outside way to move a player, and only the host may call it.
 - `Player/MovementProfile.cs`, `Combat/BlastProfile.cs`: tuning assets in `Assets/_Project/Profiles/`.
 - `Player/PlayerInputReader.cs`: polls the Input System every frame; jump and attack presses are latched so one that lands between ticks is not lost.
-- `Player/ThirdPersonCamera.cs`: orbit camera on the Main Camera; follows the smoothed visual, gives the motor its yaw. Escape frees the mouse for the lobby buttons.
+- `Player/ThirdPersonCamera.cs`: over-the-shoulder camera on the Main Camera; follows the smoothed visual, slides in when the building is behind it (furniture doesn't push it), gives the motor its yaw and aim direction. Mouse look only while the menu is closed (MENU_AND_HUD.md).
 - `Combat/Knockback.cs`: turns a blast point into `ApplyKnockback` calls.
 - `UI/PredictionDebugHud.cs`: bottom-left readout of the local body's state, speed, last correction size and ping. The motor measures a correction by remembering where prediction put the body on each tick and comparing that with the host's position for the same tick when the reconcile arrives.
 
@@ -69,6 +70,5 @@ For comparison, ValhallaPVP's playtested baseline was ground acceleration 24 m/s
 
 - No animation, no ragdoll: a knocked player is a flying capsule. Ragdoll blending is its own task.
 - The test blast is not a weapon: no projectile, no ammo, no cooldown, no visual. It exists so knockback can be tuned.
-- Camera goes through walls.
 - Spectators (the players you are not) guess one tick of input ahead; a sudden turn by them can show a small correction.
 - No ladders or ziplines yet; climbing means mantling.

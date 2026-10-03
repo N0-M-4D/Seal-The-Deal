@@ -44,14 +44,17 @@ namespace CloseTheDeal.Player
         {
             public Vector2 Move;
             public float Yaw;
+            /// <summary>Unit direction from the player's eye to whatever was under the crosshair. Only shots use it.</summary>
+            public Vector3 Aim;
             public bool Sprint;
             public OneShots OneShots;
             uint _tick;
 
-            public MoveInput(Vector2 move, float yaw, bool sprint, OneShots oneShots)
+            public MoveInput(Vector2 move, float yaw, Vector3 aim, bool sprint, OneShots oneShots)
             {
                 Move = move;
                 Yaw = yaw;
+                Aim = aim;
                 Sprint = sprint;
                 OneShots = oneShots;
                 _tick = 0;
@@ -212,9 +215,12 @@ namespace CloseTheDeal.Player
             if (!IsOwner)
                 return default;
 
-            float yaw = ThirdPersonCamera.Instance != null ? ThirdPersonCamera.Instance.Yaw : _rigidbody.rotation.eulerAngles.y;
+            ThirdPersonCamera cam = ThirdPersonCamera.Instance;
+            float yaw = cam != null ? cam.Yaw : _rigidbody.rotation.eulerAngles.y;
+            Vector3 eye = _rigidbody.position + Vector3.up * _blast.EyeHeight;
+            Vector3 aim = cam != null ? cam.AimDirectionFrom(eye) : Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
             var oneShots = new OneShots { Jump = _input.ConsumeJump(), Attack = _input.ConsumeAttack() };
-            return new MoveInput(_input.Move, yaw, _input.Sprint, oneShots);
+            return new MoveInput(_input.Move, yaw, aim, _input.Sprint, oneShots);
         }
 
         public override void CreateReconcile()
@@ -245,7 +251,7 @@ namespace CloseTheDeal.Player
             _body.MoveRotation(Quaternion.Euler(0f, yaw, 0f));
 
             if (input.OneShots.Attack && IsServerStarted)
-                FireTestBlast(input.Yaw);
+                FireTestBlast(input.Aim, input.Yaw);
 
             _body.Simulate();
         }
@@ -474,10 +480,11 @@ namespace CloseTheDeal.Player
 
         // ---- Blast ---------------------------------------------------------------------------
 
-        void FireTestBlast(float yaw)
+        /// <summary>Fires from the eye toward what the owner had under the crosshair; a missing aim falls back to straight ahead.</summary>
+        void FireTestBlast(Vector3 aim, float yaw)
         {
             Vector3 origin = _rigidbody.position + Vector3.up * _blast.EyeHeight;
-            Vector3 direction = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+            Vector3 direction = aim.sqrMagnitude > 0.5f ? aim.normalized : Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
             int mask = _groundMask | _playerMask;
 
             Vector3 point = Physics.Raycast(origin, direction, out RaycastHit hit, _blast.Range, mask, QueryTriggerInteraction.Ignore)

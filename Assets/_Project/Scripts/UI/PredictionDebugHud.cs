@@ -1,6 +1,6 @@
 using CloseTheDeal.Player;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace CloseTheDeal.UI
 {
@@ -16,7 +16,6 @@ namespace CloseTheDeal.UI
         {
             public bool Present;
             public MoveState State;
-            public bool Grounded;
             public int SpeedTenths;
             public int CorrectionCm;
             public int Corrections;
@@ -26,7 +25,6 @@ namespace CloseTheDeal.UI
             {
                 return Present == other.Present
                     && State == other.State
-                    && Grounded == other.Grounded
                     && SpeedTenths == other.SpeedTenths
                     && CorrectionCm == other.CorrectionCm
                     && Corrections == other.Corrections
@@ -34,7 +32,7 @@ namespace CloseTheDeal.UI
             }
         }
 
-        [SerializeField] Text _text;
+        [SerializeField] TMP_Text _text;
 
         [Tooltip("How often the readout refreshes, in seconds. It only rebuilds the text when a value changed.")]
         [SerializeField] float _interval = 0.1f;
@@ -65,7 +63,6 @@ namespace CloseTheDeal.UI
             {
                 Present = true,
                 State = motor.State,
-                Grounded = motor.Grounded,
                 SpeedTenths = Mathf.RoundToInt(motor.PlanarSpeed * 10f),
                 CorrectionCm = Mathf.RoundToInt(motor.LastCorrectionMetres * 100f),
                 Corrections = motor.CorrectionCount,
@@ -78,8 +75,8 @@ namespace CloseTheDeal.UI
             if (!s.Present)
                 return string.Empty;
 
-            return $"{s.State}  {(s.Grounded ? "grounded" : "in air")}  {s.SpeedTenths / 10f:0.0} m/s\n"
-                 + $"last correction {s.CorrectionCm / 100f:0.00} m   corrections {s.Corrections}   ping {s.PingMs} ms";
+            return $"{s.State}  ·  {s.SpeedTenths / 10f:0.0} m/s  ·  ping {s.PingMs} ms\n"
+                 + $"Host corrections {s.Corrections}  ·  last {s.CorrectionCm / 100f:0.00} m";
         }
     }
 }

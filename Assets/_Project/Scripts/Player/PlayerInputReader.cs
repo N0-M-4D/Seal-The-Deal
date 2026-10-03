@@ -7,6 +7,8 @@ namespace CloseTheDeal.Player
     /// Reads the local player's input every frame. Held inputs are read live; presses (jump,
     /// attack) are latched until the motor consumes them on a tick, so a tap between two
     /// ticks is never lost. Enabled only on the owning client.
+    /// Everything reads as idle while the mouse is free, which is exactly while the game menu
+    /// is open: typing a lobby code or clicking a button never moves, jumps or fires.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerInputReader : MonoBehaviour
@@ -26,11 +28,16 @@ namespace CloseTheDeal.Player
         bool _jumpLatched;
         bool _attackLatched;
 
+        static bool Captured => Cursor.lockState == CursorLockMode.Locked;
+
         /// <summary>Movement stick with the dead zone removed and the rest rescaled to 0–1.</summary>
         public Vector2 Move
         {
             get
             {
+                if (!Captured)
+                    return Vector2.zero;
+
                 Vector2 raw = _move.ReadValue<Vector2>();
                 float magnitude = Mathf.Clamp01(raw.magnitude);
                 if (magnitude <= _deadZone)
@@ -39,8 +46,8 @@ namespace CloseTheDeal.Player
                 return raw.normalized * Mathf.InverseLerp(_deadZone, 1f, magnitude);
             }
         }
-        public bool Sprint => _sprint.IsPressed();
-        public Vector2 LookDelta => _look.ReadValue<Vector2>();
+        public bool Sprint => Captured && _sprint.IsPressed();
+        public Vector2 LookDelta => Captured ? _look.ReadValue<Vector2>() : Vector2.zero;
 
         void Awake()
         {
@@ -66,11 +73,12 @@ namespace CloseTheDeal.Player
 
         void Update()
         {
+            if (!Captured)
+                return;
+
             if (_jump.WasPressedThisFrame())
                 _jumpLatched = true;
-
-            // A click with the mouse free is aimed at the lobby buttons, not the world.
-            if (_attack.WasPressedThisFrame() && Cursor.lockState == CursorLockMode.Locked)
+            if (_attack.WasPressedThisFrame())
                 _attackLatched = true;
         }
 

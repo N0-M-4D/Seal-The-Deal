@@ -30,12 +30,25 @@ be live for 14+ days; allow 7 days for each review.
 6. ~~Physics props, host-simulated.~~ Built; see [docs/systems/PROPS.md](docs/systems/PROPS.md). Ragdolls still to do. Needs its first play.
 7. The three tools: rocket launcher, throwable, zipline gun, on the knockback system.
 
+## Playtesting with a friend (first time)
+
+1. Accept the GitHub invite, then clone the repo with **GitHub Desktop** (it handles Git LFS).
+2. Install **Unity 6000.4.8f1** from Unity Hub and open the cloned folder. The first open takes a while: it downloads the netcode packages from GitHub.
+3. Have **Steam running and signed in**, and be **Steam friends** with whoever is hosting.
+4. Open `Assets/_Project/Scenes/Greybox.unity` and press **Play**.
+5. **Host:** press **Host game**, then **Copy**, and send the code to your friend.
+   **Friend:** paste the code under **Join with a lobby code** and press **Join**.
+6. Play. **Esc** brings the menu back; the controls are listed on it.
+
+Both players must be on the same commit: pull before you play.
+If something breaks, note what you did, what you expected, and copy anything red from Unity's Console.
+
 ## Working on it
 
 - Open the repo root in Unity **6000.4.8f1**.
 - FishNet and Steamworks.NET come from GitHub through the Package Manager, so **git must be on your PATH** the first time Unity opens the project. Their versions are pinned in `Packages/manifest.json`. FishySteamworks is committed under `Assets/FishNet/Plugins/FishySteamworks/` (it cannot be a Package Manager package).
-- Steam features need the **Steam client running**. Until we have our own app id, testing uses Valve's public test app: put a `steam_appid.txt` containing `480` in the repo root (it is git-ignored and must never ship).
-- Testing two players on one PC needs two Steam accounts, or a second PC.
+- Steam features need the **Steam client running**. Until we have our own app id, testing uses Valve's public test app (480); Steamworks.NET writes `steam_appid.txt` into the repo root on first open (it is git-ignored and must never ship).
+- Without Steam the game runs in **local test mode**: an editor and a build on one PC can play together. See [docs/systems/NETCODE.md](docs/systems/NETCODE.md).
 
 ## Repo notes
 

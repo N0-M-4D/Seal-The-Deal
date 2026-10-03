@@ -8,14 +8,12 @@ using FishNet.Managing;
 using FishNet.Managing.Timing;
 using FishNet.Managing.Transporting;
 using FishNet.Object;
+using FishNet.Transporting.Multipass;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 namespace CloseTheDeal.Editor.Greybox
 {
@@ -63,7 +61,7 @@ namespace CloseTheDeal.Editor.Greybox
             EnsureNetworkManager(playerPrefab, spawnA, spawnB);
             GreyboxTowerSetup.Ensure();
             SteamLobby lobby = EnsureSteam();
-            EnsureLobbyPanel(lobby);
+            GreyboxUiSetup.Ensure(lobby);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
@@ -256,8 +254,29 @@ namespace CloseTheDeal.Editor.Greybox
         static void EnsureOrbitCamera()
         {
             Camera cam = Camera.main;
-            if (cam != null && cam.GetComponent<ThirdPersonCamera>() == null)
+            if (cam == null)
+                return;
+
+            ThirdPersonCamera orbit = cam.GetComponent<ThirdPersonCamera>();
+            if (orbit == null)
+            {
                 cam.gameObject.AddComponent<ThirdPersonCamera>();
+                return;
+            }
+
+            // The first camera was saved with distance 5 and pivot 1.4, before over-the-shoulder.
+            // Move those to the new defaults, but only while nobody has tuned them.
+            var serialized = new SerializedObject(orbit);
+            MoveIfUntouched(serialized, "_distance", 5f, 4f);
+            MoveIfUntouched(serialized, "_pivotHeight", 1.4f, 1.5f);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void MoveIfUntouched(SerializedObject so, string field, float oldDefault, float newDefault)
+        {
+            SerializedProperty p = Find(so, field);
+            if (p != null && Mathf.Approximately(p.floatValue, oldDefault))
+                p.floatValue = newDefault;
         }
 
         static Transform EnsureSpawn(string name, Vector3 position)
@@ -294,10 +313,44 @@ namespace CloseTheDeal.Editor.Greybox
 
             EnsureTeamSpawner(manager.gameObject, playerPrefab, spawnA, spawnB);
             EnsureTimeManager(manager.gameObject);
+            EnsureMultipass(manager.gameObject);
+        }
 
-            // Direct connection on this PC for local test mode; SteamLobby picks the transport at runtime.
-            if (manager.GetComponent<FishNet.Transporting.Tugboat.Tugboat>() == null)
-                manager.gameObject.AddComponent<FishNet.Transporting.Tugboat.Tugboat>();
+        /// <summary>
+        /// FishNet wires up only the transport set when it starts, so Steam and local mode both
+        /// live inside a Multipass from the start: index 0 Steam, index 1 direct on this PC.
+        /// SteamLobby picks one per session. Server actions are per transport, never global,
+        /// so the Steam server is never started when Steam is not running.
+        /// </summary>
+        static void EnsureMultipass(GameObject managerObject)
+        {
+            var steam = managerObject.GetComponent<global::FishySteamworks.FishySteamworks>();
+            if (steam == null)
+                steam = managerObject.AddComponent<global::FishySteamworks.FishySteamworks>();
+
+            var local = managerObject.GetComponent<FishNet.Transporting.Tugboat.Tugboat>();
+            if (local == null)
+                local = managerObject.AddComponent<FishNet.Transporting.Tugboat.Tugboat>();
+
+            var multipass = managerObject.GetComponent<Multipass>();
+            if (multipass == null)
+                multipass = managerObject.AddComponent<Multipass>();
+
+            multipass.GlobalServerActions = false;
+            var serialized = new SerializedObject(multipass);
+            SerializedProperty transports = Find(serialized, "_transports");
+            if (transports != null)
+            {
+                transports.arraySize = 2;
+                transports.GetArrayElementAtIndex(0).objectReferenceValue = steam;
+                transports.GetArrayElementAtIndex(1).objectReferenceValue = local;
+            }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var transportManager = managerObject.GetComponent<TransportManager>();
+            var serializedManager = new SerializedObject(transportManager);
+            SetReference(serializedManager, "Transport", multipass);
+            serializedManager.ApplyModifiedPropertiesWithoutUndo();
         }
 
         /// <summary>Our team-aware spawner replaces FishNet's PlayerSpawner; the prefab is always re-pointed so a rebuilt one is picked up.</summary>
@@ -366,114 +419,6 @@ namespace CloseTheDeal.Editor.Greybox
             slot.stringValue = name;
             tagManager.ApplyModifiedPropertiesWithoutUndo();
             Debug.Log($"[Greybox] Named layer {index} '{name}'.");
-        }
-
-        // ---- UI ------------------------------------------------------------------------------
-
-        static void EnsureLobbyPanel(SteamLobby lobby)
-        {
-            LobbyPanel existingPanel = Object.FindAnyObjectByType<LobbyPanel>();
-            if (existingPanel != null)
-            {
-                EnsurePredictionHud(existingPanel.transform);
-                return;
-            }
-
-            if (Object.FindAnyObjectByType<EventSystem>() == null)
-            {
-                var es = new GameObject("EventSystem");
-                es.AddComponent<EventSystem>();
-                es.AddComponent<InputSystemUIInputModule>();
-            }
-
-            var canvasGo = new GameObject("LobbyCanvas");
-            Canvas canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = canvasGo.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            canvasGo.AddComponent<GraphicRaycaster>();
-
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-            Button host = MakeButton(canvasGo.transform, "HostButton", "Host", new Vector2(120f, -60f), font);
-            Button invite = MakeButton(canvasGo.transform, "InviteButton", "Invite", new Vector2(120f, -120f), font);
-            Button leave = MakeButton(canvasGo.transform, "LeaveButton", "Leave", new Vector2(120f, -180f), font);
-            Text status = MakeText(canvasGo.transform, "Status", "Starting...", new Vector2(260f, -60f), new Vector2(900f, 40f), font);
-            Text players = MakeText(canvasGo.transform, "Players", string.Empty, new Vector2(260f, -120f), new Vector2(900f, 40f), font);
-
-            var panel = canvasGo.AddComponent<LobbyPanel>();
-            var serialized = new SerializedObject(panel);
-            SetReference(serialized, "_lobby", lobby);
-            SetReference(serialized, "_hostButton", host);
-            SetReference(serialized, "_inviteButton", invite);
-            SetReference(serialized, "_leaveButton", leave);
-            SetReference(serialized, "_statusText", status);
-            SetReference(serialized, "_playersText", players);
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-
-            EnsurePredictionHud(canvasGo.transform);
-        }
-
-        /// <summary>Bottom-left readout of the local body's state and correction size.</summary>
-        static void EnsurePredictionHud(Transform canvas)
-        {
-            if (canvas.GetComponent<PredictionDebugHud>() != null)
-                return;
-
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Text text = MakeText(canvas, "Prediction", string.Empty, new Vector2(20f, -960f), new Vector2(1200f, 80f), font);
-            text.fontSize = 20;
-
-            var hud = canvas.gameObject.AddComponent<PredictionDebugHud>();
-            var serialized = new SerializedObject(hud);
-            SetReference(serialized, "_text", text);
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        static Button MakeButton(Transform parent, string name, string label, Vector2 topLeftOffset, Font font)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var image = go.AddComponent<Image>();
-            image.color = new Color(0.2f, 0.2f, 0.2f, 0.9f);
-            Button button = go.AddComponent<Button>();
-
-            RectTransform rect = go.GetComponent<RectTransform>();
-            AnchorTopLeft(rect, topLeftOffset, new Vector2(200f, 48f));
-
-            Text text = MakeText(go.transform, "Label", label, Vector2.zero, new Vector2(200f, 48f), font);
-            text.alignment = TextAnchor.MiddleCenter;
-            RectTransform textRect = text.rectTransform;
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-
-            return button;
-        }
-
-        static Text MakeText(Transform parent, string name, string content, Vector2 topLeftOffset, Vector2 size, Font font)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            Text text = go.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = 24;
-            text.color = Color.white;
-            text.text = content;
-            text.alignment = TextAnchor.MiddleLeft;
-            AnchorTopLeft(text.rectTransform, topLeftOffset, size);
-            return text;
-        }
-
-        static void AnchorTopLeft(RectTransform rect, Vector2 offset, Vector2 size)
-        {
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = offset;
-            rect.sizeDelta = size;
         }
 
         // ---- Asset and serialized-field helpers ----------------------------------------------
