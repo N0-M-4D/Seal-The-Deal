@@ -56,9 +56,15 @@ namespace CloseTheDeal.Net
 
             // Not an error: the lobby falls back to local test mode without Steam.
             if (!IsReady)
+            {
                 Debug.LogWarning("[Steam] Steam is not available, so the lobby uses local test mode. For Steam, start Steam and sign in, and keep steam_appid.txt next to the executable (or in the project root in the editor).");
-            else
-                Debug.Log($"[Steam] Ready as {SteamFriends.GetPersonaName()} ({SteamUser.GetSteamID()}).");
+                return;
+            }
+
+            // Steam measures its relay routes in the background from this call on. The transport
+            // only asks when a connection starts, which would make the first Host or Join wait for it.
+            SteamNetworkingUtils.InitRelayNetworkAccess();
+            Debug.Log($"[Steam] Ready as {SteamFriends.GetPersonaName()} ({SteamUser.GetSteamID()}).");
         }
 
         void Update()

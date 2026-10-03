@@ -84,12 +84,10 @@ namespace CloseTheDeal.Editor.Greybox
             Set(root, "Hud", false);
             Set(root, "Menu/Card/StartSection", true);
             Set(root, "Menu/Card/GameSection", false);
-            Set(root, "Menu/Card/StartSection/JoinCodeGroup", true);
+            Set(root, "Menu/Card/StartSection/JoinHint", true);
             Set(root, "Menu/Card/StartSection/JoinLocalButton", false);
-            Set(root, "Menu/Card/StartSection/JoinCodeGroup/JoinError", true);
             Text(root, "Menu/Card/Mode", "Steam · signed in as Adam");
-            Text(root, "Menu/Card/Status", "Ready. Host a game, or paste a lobby code to join one.");
-            Text(root, "Menu/Card/StartSection/JoinCodeGroup/JoinError", "That isn't a lobby code. It's a long number the host copies from their menu.");
+            Text(root, "Menu/Card/Status", "Ready. Host a game, or join a friend from your Steam friends list.");
         }
 
         static void ShowHosting(Transform root)
@@ -98,18 +96,17 @@ namespace CloseTheDeal.Editor.Greybox
             Set(root, "Hud", false);
             Set(root, "Menu/Card/StartSection", false);
             Set(root, "Menu/Card/GameSection", true);
-            Set(root, "Menu/Card/GameSection/CodeGroup", true);
             Set(root, "Menu/Card/GameSection/InviteButton", false);
+            Set(root, "Menu/Card/GameSection/InviteHint", true);
             Set(root, "Menu/Card/GameSection/ResumeButton", true);
-            Text(root, "Menu/Card/Status", "Hosting. Copy the lobby code and send it to your friend.");
-            Text(root, "Menu/Card/GameSection/CodeGroup/CodeRow/CodeBox/CodeText", "109775241736487234");
-            Text(root, "Menu/Card/GameSection/Players", "Players  1 / 2");
+            Text(root, "Menu/Card/Status", "Hosting. Invite a friend, or they can pick Join Game on your name in their Steam friends list.");
+            Text(root, "Menu/Card/GameSection/Players", "Players  1 / 4");
         }
 
         static void ShowLocal(Transform root)
         {
             ShowStart(root);
-            Set(root, "Menu/Card/StartSection/JoinCodeGroup", false);
+            Set(root, "Menu/Card/StartSection/JoinHint", false);
             Set(root, "Menu/Card/StartSection/JoinLocalButton", true);
             Text(root, "Menu/Card/Mode", "Local test mode · Steam isn't running");
             Text(root, "Menu/Card/Status", "Ready. Host a game, or join one running on this PC.");

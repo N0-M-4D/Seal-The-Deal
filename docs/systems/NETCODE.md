@@ -4,23 +4,25 @@
 
 ## What happens in the game
 
-One player presses **Host game**. A Steam lobby is created and the game starts a server on their PC. The menu shows a **lobby code** with a **Copy** button.
-The host sends the code to a friend (Discord, text). The friend pastes it into **Join with a lobby code** and presses **Join**: their game enters the lobby, reads the host's Steam ID from it and connects.
-Both now stand in the towers as capsules and can walk, jump, climb ledges and blast each other about (see [PLAYER_MOVEMENT.md](PLAYER_MOVEMENT.md)).
+One player presses **Host game**. A Steam lobby is created and the game starts a server on their PC.
+A friend joins in one of three ways, none of them a code: the host presses **Invite with the Steam overlay** and picks them; they pick **Join Game** on the host's name in their Steam friends list or profile; or they accept an invite in Steam chat. If their game is closed, Steam launches it straight into the lobby. Their game enters the lobby, reads the host's Steam ID from it and connects.
+Up to **4** players fit in one lobby. Both now stand in the towers as capsules and can walk, jump, climb ledges and blast each other about (see [PLAYER_MOVEMENT.md](PLAYER_MOVEMENT.md)).
 **Esc** brings the menu back; **Leave game** disconnects and leaves the lobby. The menu itself is in [MENU_AND_HUD.md](MENU_AND_HUD.md).
 
-The lobby is **friends-only**: the two players must be Steam friends, or Steam refuses the join and the menu says so.
-A Steam invite (from the overlay or a friend's chat) also works when accepted with the game already open; the overlay invite button only appears when Steam's overlay is actually present, which it is not in the Unity editor or in a build started outside Steam.
+The lobby is **friends-only**: the players must be Steam friends, or Steam refuses the join and the menu says so. A friend on a different game version is turned away with a message saying who needs to update.
+The overlay invite button only appears when Steam's overlay is actually present, which it is not in the Unity editor or in a build started outside Steam; the friends-list route works everywhere.
+Every failure says what happened in the menu's status line: a host that can't be reached (the join gives up after 15 s), a host who closed the game, or a connection that dropped. Each sends the player back to the menu with the lobby cleaned up.
 
-Stack: **FishNet 4.7.3** with the **FishySteamworks 4.1.1** transport over **Steamworks.NET 2025.164.1**. Steam relays the traffic, so no ports are opened.
+Stack: **FishNet 4.7.3** (the pinned tag; its own version strings still say 4.7.2) with the **FishySteamworks 4.1.1** transport over **Steamworks.NET 2025.164.1**. Steam connects two players directly when both allow it and relays through its own network otherwise; either way no ports are opened. Relay access is warmed up at launch so the first Host or Join doesn't wait for it.
 
 ## Who owns what
 
 | Thing | Owner | Synced | Rate |
 |---|---|---|---|
-| Steam lobby | Steam; the host is its owner | Lobby data: `host` = host's SteamID64 | On change |
+| Steam lobby | Steam; the host is its owner | Lobby data: `host` = host's SteamID64, `ver` = game version | On change |
+| Rich presence | Each player, about themselves | `connect` (what Join Game does), `steam_player_group` and its size, a `status` line | On lobby events |
 | Server | Host's PC | — | 60 ticks/s; FishNet also steps physics per tick |
-| Player body | **Host.** Spawned by the host, owned by the connecting client, which predicts its own moves | Inputs up (~30 B), host state down (~70 B) | Every tick |
+| Player body | **Host.** Spawned by the host, owned by the connecting client, which predicts its own moves | Inputs up (~30 B), host state down (~80 B) | Every tick |
 | Knockback | Host only | Inside the body state | On hit |
 | Props (furniture) | **Host** simulates; clients hold them kinematic | Position and rotation, via NetworkTransform; see [PROPS.md](PROPS.md) | While moving, 30/s |
 | Towers | Host picks a seed; everyone builds locally; see [TOWER.md](TOWER.md) | One number | Once |
@@ -34,7 +36,7 @@ Both transports sit inside a **Multipass** on the NetworkManager: FishySteamwork
 All under [Assets/_Project/Scripts/](../../Assets/_Project/Scripts/):
 
 - `Net/SteamService.cs`: starts Steam on launch, pumps its callbacks every frame, shuts it down on quit. Nothing else touches `SteamAPI.Init`. Steam missing is a warning, not an error: the lobby falls back to local test mode.
-- `Net/SteamLobby.cs`: Host, join by code, join local, invite, leave. Creates or joins the Steam lobby, then starts FishNet's server and/or client on the chosen transport. Turns Steam's join refusals into plain reasons. Also handles a Steam invite accepted while the game is open, and `+connect_lobby` when the game was launched from one.
+- `Net/SteamLobby.cs`: Host, join local, invite, leave. Creates or joins the Steam lobby, then starts FishNet's server and/or client on the chosen transport. Publishes rich presence so friends can Join Game on us, and handles that join whether it arrives as a Steam callback (game open) or as `+connect_lobby` on the command line (game launched by Steam). Checks the game version on entry, times out a join that never connects, and on a lost host leaves the lobby and says whether the host closed the game or the line dropped. Turns Steam's join refusals into plain reasons.
 - `UI/GameMenu.cs`: the menu and HUD; see [MENU_AND_HUD.md](MENU_AND_HUD.md).
 - `Player/`, `Combat/`: the predicted body and knockback; owned by [PLAYER_MOVEMENT.md](PLAYER_MOVEMENT.md).
 
@@ -43,9 +45,11 @@ Scene wiring is built by the menu item **Close the Deal > Greybox > Set Up Scene
 ## Known limitations
 
 - **If the host leaves, the run ends.** No host migration; this is by design (see the GDD).
-- **No rejoin.** A dropped client has to join again with the code.
-- Steam runs under Valve's test app id **480** until we own an app id. Anyone with a Steam account can use it; Steam shows the game as "Spacewar".
+- **No rejoin.** A dropped client has to join again from the friends list or a fresh invite.
+- Steam runs under Valve's test app id **480** until we own an app id. Anyone with a Steam account can use it; Steam shows the game as "Spacewar", and Join Game from the friends list launches whatever is installed as app 480, so test the launch-from-Steam path only once we have our own id.
 - Lobbies are friends-only; there is no public list or matchmaking (out of scope for v1).
+- The lobby stays joinable during a run, because nothing marks a run's start yet. Once the secretary starts runs, the lobby should close then and reopen after.
+- FishySteamworks is unmaintained upstream, so we carry it as a fork in [Assets/_Project/Plugins/FishySteamworks/](../../Assets/_Project/Plugins/FishySteamworks/) with its send bug fixed (its `FORK.md` lists the patches). Without that fix FishNet's latency simulator broke every packet over Steam.
 
 ## Testing it
 
@@ -53,7 +57,7 @@ Scene wiring is built by the menu item **Close the Deal > Greybox > Set Up Scene
 
 - Steam running and signed in on both PCs, and the two accounts are **Steam friends**.
 - Both on the same commit, opening `Assets/_Project/Scenes/Greybox.unity` in Unity 6000.4.8f1 (or a build of it).
-- Host: Play, **Host game**, **Copy**, send the code. Friend: Play, paste the code, **Join**.
+- Host: Play, **Host game**. Friend: Play, then right-click the host in the Steam friends list and pick **Join Game** (or accept the host's invite). Both games must already be open: with app id 480, launching from Steam opens Spacewar, not ours.
 - `steam_appid.txt` (containing `480`) must sit next to the executable or in the project root. Steamworks.NET writes it into the project root the first time the editor opens; it is git-ignored and must never ship.
 
 ### On one PC, without Steam: local test mode

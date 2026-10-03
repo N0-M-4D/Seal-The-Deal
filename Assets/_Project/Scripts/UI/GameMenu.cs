@@ -29,40 +29,29 @@ namespace CloseTheDeal.UI
         [Header("Not in a game")]
         [SerializeField] GameObject _startSection;
         [SerializeField] UnityEngine.UI.Button _hostButton;
-        [SerializeField] GameObject _joinCodeGroup;
-        [SerializeField] TMP_InputField _codeInput;
-        [SerializeField] UnityEngine.UI.Button _joinCodeButton;
-        [SerializeField] TMP_Text _joinError;
+        [SerializeField] GameObject _joinHint;
         [SerializeField] UnityEngine.UI.Button _joinLocalButton;
 
         [Header("In a game")]
         [SerializeField] GameObject _gameSection;
-        [SerializeField] GameObject _codeGroup;
-        [SerializeField] TMP_Text _codeText;
-        [SerializeField] UnityEngine.UI.Button _copyButton;
         [SerializeField] TMP_Text _playersText;
         [SerializeField] UnityEngine.UI.Button _inviteButton;
+        [SerializeField] GameObject _inviteHint;
         [SerializeField] UnityEngine.UI.Button _resumeButton;
         [SerializeField] UnityEngine.UI.Button _leaveButton;
 
         bool _open = true;
         bool _inGame;
-        string _lastCode;
         string _lastPlayers;
         string _lastMode;
 
         void OnEnable()
         {
             _lobby.OnStatus += SetStatus;
-            _lobby.OnJoinFailed += ShowJoinError;
             _lobby.OnChanged += Refresh;
 
-            _hostButton.onClick.AddListener(OnHost);
-            _joinCodeButton.onClick.AddListener(OnJoinCode);
-            _codeInput.onSubmit.AddListener(OnCodeSubmit);
-            _codeInput.onValueChanged.AddListener(OnCodeEdited);
+            _hostButton.onClick.AddListener(_lobby.Host);
             _joinLocalButton.onClick.AddListener(_lobby.JoinLocal);
-            _copyButton.onClick.AddListener(OnCopy);
             _inviteButton.onClick.AddListener(_lobby.Invite);
             _resumeButton.onClick.AddListener(Resume);
             _leaveButton.onClick.AddListener(_lobby.Leave);
@@ -71,15 +60,10 @@ namespace CloseTheDeal.UI
         void OnDisable()
         {
             _lobby.OnStatus -= SetStatus;
-            _lobby.OnJoinFailed -= ShowJoinError;
             _lobby.OnChanged -= Refresh;
 
-            _hostButton.onClick.RemoveListener(OnHost);
-            _joinCodeButton.onClick.RemoveListener(OnJoinCode);
-            _codeInput.onSubmit.RemoveListener(OnCodeSubmit);
-            _codeInput.onValueChanged.RemoveListener(OnCodeEdited);
+            _hostButton.onClick.RemoveListener(_lobby.Host);
             _joinLocalButton.onClick.RemoveListener(_lobby.JoinLocal);
-            _copyButton.onClick.RemoveListener(OnCopy);
             _inviteButton.onClick.RemoveListener(_lobby.Invite);
             _resumeButton.onClick.RemoveListener(Resume);
             _leaveButton.onClick.RemoveListener(_lobby.Leave);
@@ -87,7 +71,6 @@ namespace CloseTheDeal.UI
 
         void Start()
         {
-            ShowJoinError(string.Empty);
             SetOpen(true);
             Refresh();
         }
@@ -144,46 +127,12 @@ namespace CloseTheDeal.UI
             EventSystem.current.SetSelectedGameObject(first.gameObject);
         }
 
-        // ---- Buttons -------------------------------------------------------------------------
-
-        void OnHost()
-        {
-            ShowJoinError(string.Empty);
-            _lobby.Host();
-        }
-
-        void OnJoinCode()
-        {
-            string error = _lobby.JoinByCode(_codeInput.text);
-            ShowJoinError(error ?? string.Empty);
-        }
-
-        void OnCodeSubmit(string _) => OnJoinCode();
-
-        void OnCodeEdited(string _)
-        {
-            if (_joinError.gameObject.activeSelf)
-                ShowJoinError(string.Empty);
-        }
-
-        void OnCopy()
-        {
-            GUIUtility.systemCopyBuffer = _lobby.LobbyCode;
-            SetStatus("Code copied. Send it to your friend; they paste it into Join with a lobby code.");
-        }
-
         // ---- State ---------------------------------------------------------------------------
 
         void SetStatus(string text)
         {
             _statusText.text = text;
             Refresh();
-        }
-
-        void ShowJoinError(string text)
-        {
-            _joinError.text = text;
-            _joinError.gameObject.SetActive(!string.IsNullOrEmpty(text));
         }
 
         void Refresh()
@@ -195,16 +144,14 @@ namespace CloseTheDeal.UI
             _gameSection.SetActive(active);
 
             _hostButton.interactable = _lobby.Ready;
-            _joinCodeGroup.SetActive(!local);
+            _joinHint.SetActive(!local);
             _joinLocalButton.gameObject.SetActive(local);
             _joinLocalButton.interactable = _lobby.Ready;
 
-            bool showCode = active && _lobby.InLobby;
-            _codeGroup.SetActive(showCode);
             _inviteButton.gameObject.SetActive(_lobby.CanInviteViaOverlay);
+            _inviteHint.SetActive(active && _lobby.InLobby);
             _resumeButton.gameObject.SetActive(_inGame);
 
-            SetIfChanged(_codeText, ref _lastCode, showCode ? _lobby.LobbyCode : string.Empty);
             SetIfChanged(_playersText, ref _lastPlayers, active ? $"Players  {_lobby.PlayerCount} / {_lobby.MaxPlayers}" : string.Empty);
             SetIfChanged(_modeText, ref _lastMode, ModeLine(local));
         }

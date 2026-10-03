@@ -4,9 +4,9 @@
 
 ## What happens in the game
 
-The game opens on a menu card over the scene: the title, whether you're on Steam or in local test mode, and one status line saying what's happening right now. Below it, **Host game**, and either **Join with a lobby code** (Steam) or **Join game on this PC** (local). Once you're in a game the card shows the **lobby code** with **Copy**, the player count, **Back to game** and **Leave game**. The controls are listed at the bottom of the card.
+The game opens on a menu card over the scene: the title, whether you're on Steam or in local test mode, and one status line saying what's happening right now. Below it, **Host game**, and either a note on how to join a friend (Steam: accept their invite, or **Join Game** on their name in the friends list) or **Join game on this PC** (local). There are no lobby codes. Once you're in a game the card shows the player count, **Invite with the Steam overlay** when the overlay exists, a note that friends can join from your name, **Back to game** and **Leave game**. The controls are listed at the bottom of the card.
 
-In game the menu is gone: a crosshair in the centre, **Esc · Menu** top-left and the network readout bottom-left. **Esc** opens the menu again. While the menu is open the mouse is free and your character stands still, so typing a code or clicking never moves, jumps or fires.
+In game the menu is gone: a crosshair in the centre, **Esc · Menu** top-left and the network readout bottom-left. **Esc** opens the menu again. While the menu is open the mouse is free and your character stands still, so clicking never moves, jumps or fires.
 
 Greybox: this is a playtest tool, not the final lobby. The final one lives in the reception with the secretary (GDD).
 
@@ -15,9 +15,9 @@ Greybox: this is a playtest tool, not the final lobby. The final one lives in th
 - **Menu open ⇔ mouse free ⇔ player idle.** One script (`GameMenu`) owns all three so they can't disagree. If something else frees the mouse (the editor's own Esc, alt-tab), the menu opens to match.
 - The menu opens by itself whenever you have no player: before joining, after leaving, and when the connection drops.
 - Every wait says what it's doing in the status line ("Creating a Steam lobby…", "Joining lobby…", "Connecting to Adam's game…").
-- A failed join explains itself under the code field, in plain words, including the friends-only case.
+- A failed join explains itself in the status line, in plain words: friends-only, full, a version mismatch, or a host that can't be reached.
 - Buttons that can't be used are dimmed, not hidden, except whole sections that don't apply in the current mode.
-- Keyboard focus lands on the likeliest next button when the menu opens; Enter in the code field joins.
+- Keyboard focus lands on the likeliest next button when the menu opens.
 
 ## Look
 

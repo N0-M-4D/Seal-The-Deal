@@ -21,16 +21,13 @@ namespace CloseTheDeal.Editor.Greybox
         const string CanvasName = "GameUI";
         const string OldCanvasName = "LobbyCanvas";
 
-        // Palette. Contrast: Text on Card 15.6:1, Muted on Card 7.5:1, Error on Card 8:1, PrimaryText on
-        // Primary 10:1, Text on Secondary 11.6:1, Placeholder on Field 5:1. HUD text sits on a dark chip.
+        // Palette. Contrast: Text on Card 15.6:1, Muted on Card 7.5:1, PrimaryText on Primary 10:1,
+        // Text on Secondary 11.6:1. HUD text sits on a dark chip.
         static readonly Color Dim = new(0.02f, 0.03f, 0.05f, 0.72f);
         static readonly Color Card = new(0.09f, 0.10f, 0.13f, 0.98f);
-        static readonly Color Field = new(0.06f, 0.07f, 0.09f, 1f);
         static readonly Color Divider = new(0.17f, 0.19f, 0.23f, 1f);
         static readonly Color Text = new(0.95f, 0.95f, 0.96f, 1f);
         static readonly Color Muted = new(0.64f, 0.67f, 0.71f, 1f);
-        static readonly Color Placeholder = new(0.49f, 0.52f, 0.57f, 1f);
-        static readonly Color Error = new(1f, 0.56f, 0.52f, 1f);
         static readonly Color Primary = new(0.94f, 0.71f, 0.30f, 1f);
         static readonly Color PrimaryText = new(0.10f, 0.08f, 0.02f, 1f);
         static readonly Color Secondary = new(0.17f, 0.19f, 0.23f, 1f);
@@ -38,7 +35,6 @@ namespace CloseTheDeal.Editor.Greybox
         const float CardWidth = 720f;
         const float PrimaryHeight = 64f;
         const float ControlHeight = 56f;
-        const float SideButtonWidth = 160f;
 
         [MenuItem("Close the Deal/Greybox/Rebuild Game UI")]
         public static void RebuildGameUi()
@@ -59,12 +55,20 @@ namespace CloseTheDeal.Editor.Greybox
             SaveScene();
         }
 
-        /// <summary>Called by Set Up Scene. Builds the UI only when there is none; replaces the
-        /// pre-TextMeshPro LobbyCanvas, which was tool-generated and whose script no longer exists.</summary>
+        /// <summary>Called by Set Up Scene. Builds the UI only when there is none, with two tool-generated
+        /// exceptions it replaces: the pre-TextMeshPro LobbyCanvas, whose script no longer exists, and a
+        /// menu from before lobby codes were removed, which still carries the code widgets.</summary>
         public static void Ensure(SteamLobby lobby)
         {
-            if (Object.FindAnyObjectByType<GameMenu>() != null)
+            GameMenu existing = Object.FindAnyObjectByType<GameMenu>();
+            if (existing != null && existing.transform.Find("Menu/Card/StartSection/JoinCodeGroup") == null)
                 return;
+
+            if (existing != null)
+            {
+                Debug.Log("[UI] The game menu predates codeless joining; rebuilding it.");
+                Object.DestroyImmediate(existing.gameObject);
+            }
 
             DestroyNamed(OldCanvasName);
             Build(lobby);
@@ -176,10 +180,9 @@ namespace CloseTheDeal.Editor.Greybox
         {
             public GameObject Hud, Menu;
             public TMP_Text Mode, Status;
-            public GameObject StartSection, JoinCodeGroup, GameSection, CodeGroup;
-            public UnityEngine.UI.Button Host, JoinCode, JoinLocal, Copy, Invite, Resume, Leave;
-            public TMP_InputField CodeInput;
-            public TMP_Text JoinError, CodeText, Players;
+            public GameObject StartSection, GameSection;
+            public UnityEngine.UI.Button Host, JoinLocal, Invite, Resume, Leave;
+            public TMP_Text JoinHint, InviteHint, Players;
         }
 
         // ---- HUD -----------------------------------------------------------------------------
@@ -259,16 +262,7 @@ namespace CloseTheDeal.Editor.Greybox
             Transform s = r.StartSection.transform;
 
             r.Host = Button(s, "HostButton", "Host game", primary: true, PrimaryHeight);
-
-            r.JoinCodeGroup = Section(s, "JoinCodeGroup", 8f);
-            Transform join = r.JoinCodeGroup.transform;
-            Row(Label(join, "JoinLabel", "Join with a lobby code", 18, Muted), 24f);
-            GameObject joinRow = RowGroup(join, "JoinRow");
-            r.CodeInput = CodeField(joinRow.transform);
-            r.JoinCode = Button(joinRow.transform, "JoinButton", "Join", primary: false, ControlHeight, SideButtonWidth);
-            r.JoinError = Label(join, "JoinError", string.Empty, 18, Error);
-            r.JoinError.textWrappingMode = TextWrappingModes.Normal;
-
+            r.JoinHint = Hint(s, "JoinHint", "To join a friend, accept their invite, or pick <b>Join Game</b> on their name in your Steam friends list.");
             r.JoinLocal = Button(s, "JoinLocalButton", "Join game on this PC", primary: false, ControlHeight);
         }
 
@@ -277,23 +271,19 @@ namespace CloseTheDeal.Editor.Greybox
             r.GameSection = Section(card, "GameSection", 12f);
             Transform s = r.GameSection.transform;
 
-            r.CodeGroup = Section(s, "CodeGroup", 8f);
-            Transform code = r.CodeGroup.transform;
-            Row(Label(code, "CodeLabel", "Lobby code · send this to your friend", 18, Muted), 24f);
-            GameObject codeRow = RowGroup(code, "CodeRow");
-            GameObject codeBox = new("CodeBox", typeof(RectTransform));
-            codeBox.transform.SetParent(codeRow.transform, false);
-            codeBox.AddComponent<UnityEngine.UI.Image>().color = Field;
-            Size(codeBox, ControlHeight, flexibleWidth: 1f);
-            r.CodeText = Label(codeBox.transform, "CodeText", string.Empty, 26, Text);
-            r.CodeText.characterSpacing = 4f;
-            Fill(r.CodeText.rectTransform, 16f);
-            r.Copy = Button(codeRow.transform, "CopyButton", "Copy", primary: false, ControlHeight, SideButtonWidth);
-
             r.Players = Row(Label(s, "Players", string.Empty, 20, Text), 28f);
             r.Invite = Button(s, "InviteButton", "Invite with the Steam overlay", primary: false, ControlHeight);
+            r.InviteHint = Hint(s, "InviteHint", "Friends can join from your name in their Steam friends list.");
             r.Resume = Button(s, "ResumeButton", "Back to game", primary: true, PrimaryHeight);
             r.Leave = Button(s, "LeaveButton", "Leave game", primary: false, ControlHeight);
+        }
+
+        /// <summary>A muted two-line note under a button, wrapping rather than clipping.</summary>
+        static TMP_Text Hint(Transform parent, string name, string content)
+        {
+            TMP_Text hint = Label(parent, name, content, 18, Muted);
+            hint.textWrappingMode = TextWrappingModes.Normal;
+            return Row(hint, 48f);
         }
 
         static void Wire(GameMenu menu, SteamLobby lobby, MenuRefs r)
@@ -306,17 +296,12 @@ namespace CloseTheDeal.Editor.Greybox
             GreyboxSceneSetup.SetReference(so, "_statusText", r.Status);
             GreyboxSceneSetup.SetReference(so, "_startSection", r.StartSection);
             GreyboxSceneSetup.SetReference(so, "_hostButton", r.Host);
-            GreyboxSceneSetup.SetReference(so, "_joinCodeGroup", r.JoinCodeGroup);
-            GreyboxSceneSetup.SetReference(so, "_codeInput", r.CodeInput);
-            GreyboxSceneSetup.SetReference(so, "_joinCodeButton", r.JoinCode);
-            GreyboxSceneSetup.SetReference(so, "_joinError", r.JoinError);
+            GreyboxSceneSetup.SetReference(so, "_joinHint", r.JoinHint.gameObject);
             GreyboxSceneSetup.SetReference(so, "_joinLocalButton", r.JoinLocal);
             GreyboxSceneSetup.SetReference(so, "_gameSection", r.GameSection);
-            GreyboxSceneSetup.SetReference(so, "_codeGroup", r.CodeGroup);
-            GreyboxSceneSetup.SetReference(so, "_codeText", r.CodeText);
-            GreyboxSceneSetup.SetReference(so, "_copyButton", r.Copy);
             GreyboxSceneSetup.SetReference(so, "_playersText", r.Players);
             GreyboxSceneSetup.SetReference(so, "_inviteButton", r.Invite);
+            GreyboxSceneSetup.SetReference(so, "_inviteHint", r.InviteHint.gameObject);
             GreyboxSceneSetup.SetReference(so, "_resumeButton", r.Resume);
             GreyboxSceneSetup.SetReference(so, "_leaveButton", r.Leave);
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -365,43 +350,6 @@ namespace CloseTheDeal.Editor.Greybox
                 colorMultiplier = 1f,
                 fadeDuration = 0.08f
             };
-        }
-
-        static TMP_InputField CodeField(Transform parent)
-        {
-            GameObject go = TMP_DefaultControls.CreateInputField(new TMP_DefaultControls.Resources());
-            go.name = "CodeInput";
-            go.transform.SetParent(parent, false);
-
-            var image = go.GetComponent<UnityEngine.UI.Image>();
-            image.sprite = null;
-            image.color = Field;
-
-            var field = go.GetComponent<TMP_InputField>();
-            field.colors = Tints();
-            field.lineType = TMP_InputField.LineType.SingleLine;
-            field.characterLimit = 32;
-            field.caretColor = Text;
-            field.customCaretColor = true;
-            field.selectionColor = new Color(Primary.r, Primary.g, Primary.b, 0.4f);
-            field.pointSize = 22;
-
-            var text = (TMP_Text)field.textComponent;
-            text.color = Text;
-            text.alignment = TextAlignmentOptions.MidlineLeft;
-
-            var placeholder = (TMP_Text)field.placeholder;
-            placeholder.text = "Paste the code from the host";
-            placeholder.color = Placeholder;
-            placeholder.fontStyle = FontStyles.Normal;
-            placeholder.alignment = TextAlignmentOptions.MidlineLeft;
-
-            var textArea = (RectTransform)field.textViewport;
-            textArea.offsetMin = new Vector2(16f, 6f);
-            textArea.offsetMax = new Vector2(-16f, -6f);
-
-            Size(go, ControlHeight, flexibleWidth: 1f);
-            return field;
         }
 
         // ---- Layout helpers ------------------------------------------------------------------
