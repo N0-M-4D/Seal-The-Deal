@@ -55,7 +55,7 @@ Under [Assets/_Project/Scripts/](../../Assets/_Project/Scripts/):
 - `Combat/Knockback.cs`: turns a blast point into `ApplyKnockback` calls.
 - `UI/PredictionDebugHud.cs`: bottom-left readout of the local body's state, speed, last correction size and ping. The motor measures a correction by remembering where prediction put the body on each tick and comparing that with the host's position for the same tick when the reconcile arrives.
 
-Prefab: `Player.prefab` is a 1.8 m capsule with the pivot at the feet, mass 80, frictionless, rotation frozen. Its `Graphics` child is the FishNet graphical object: FishNet moves it smoothly between ticks, so visuals and camera never step. Under it, a `Lean` pivot at hip height (0.9 m) holds the body and nose; the owner's copy renders shadow-only.
+Prefab: `Player.prefab` is a 1.8 m capsule with the pivot at the feet, mass 80, frictionless, rotation frozen. Its `Graphics` child is the FishNet graphical object: FishNet moves it smoothly between ticks, so visuals and camera never step. Under it, a `Lean` pivot at hip height (0.9 m) holds the body and nose; the owner's copy renders shadow-only (a part set to cast no shadow is hidden outright), and every part gets its own prefab shadow setting back when the owner leaves.
 
 ## Level rules (for whoever builds floors)
 

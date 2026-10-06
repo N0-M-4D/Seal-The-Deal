@@ -177,6 +177,7 @@ namespace CloseTheDeal.Player
         float _shownLean;
         Vector3 _leanPivotRest;
         Renderer[] _ownRenderers;
+        UnityEngine.Rendering.ShadowCastingMode[] _authoredShadows;
         uint _currentTick;
         MoveInput _lastTickedInput;
         bool _grounded;
@@ -208,6 +209,9 @@ namespace CloseTheDeal.Player
             _input.enabled = false;
             _body.Initialize(_rigidbody);
             _ownRenderers = _cameraTarget.GetComponentsInChildren<Renderer>(true);
+            _authoredShadows = new UnityEngine.Rendering.ShadowCastingMode[_ownRenderers.Length];
+            for (int i = 0; i < _ownRenderers.Length; i++)
+                _authoredShadows[i] = _ownRenderers[i].shadowCastingMode;
             if (_leanPivot != null)
                 _leanPivotRest = _leanPivot.localPosition;
         }
@@ -243,12 +247,20 @@ namespace CloseTheDeal.Player
                 PlayerCamera.Instance.Release(_cameraTarget);
         }
 
-        /// <summary>The first-person camera sits inside the body, so the owner sees only its shadow.</summary>
+        /// <summary>
+        /// The first-person camera sits inside the body, so the owner sees only its shadow.
+        /// A part the prefab sets to cast no shadow is hidden outright instead. Showing the
+        /// body again puts back each part's own shadow setting from the prefab.
+        /// </summary>
         void ShowOwnBody(bool visible)
         {
-            var mode = visible ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-            foreach (Renderer part in _ownRenderers)
-                part.shadowCastingMode = mode;
+            for (int i = 0; i < _ownRenderers.Length; i++)
+            {
+                var authored = _authoredShadows[i];
+                bool castsShadow = authored != UnityEngine.Rendering.ShadowCastingMode.Off;
+                _ownRenderers[i].shadowCastingMode = visible || !castsShadow ? authored : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                _ownRenderers[i].forceRenderingOff = !visible && !castsShadow;
+            }
         }
 
         /// <summary>Visual only: eases the hip pivot toward the ticked lean so every client sees the peek without stepping.</summary>

@@ -19,8 +19,9 @@ namespace CloseTheDeal.Editor.Greybox
 {
     /// <summary>
     /// Builds the greybox scene, the player prefab and the tuning assets from menu items.
-    /// "Set Up Scene" only adds what is missing and never rebuilds anything already there.
-    /// "Rebuild Player Prefab" is the one deliberate overwrite, kept on its own menu item.
+    /// "Set Up Scene" only adds what is missing and never rebuilds or retunes anything already
+    /// there. "Rebuild Player Prefab" is the one deliberate overwrite, kept on its own menu item,
+    /// and it too leaves a prefab alone once someone has edited it (GeneratedAssetGuard).
     /// </summary>
     public static class GreyboxSceneSetup
     {
@@ -73,7 +74,7 @@ namespace CloseTheDeal.Editor.Greybox
         public static void RebuildPlayerPrefab()
         {
             EnsureLayers();
-            BuildPlayerPrefab();
+            RebuildPlayerPrefabIfOwned();
             SetUpScene();
         }
 
@@ -82,12 +83,18 @@ namespace CloseTheDeal.Editor.Greybox
         public static void RebuildEverything()
         {
             EnsureLayers();
-            BuildPlayerPrefab();
+            RebuildPlayerPrefabIfOwned();
             GreyboxPropSetup.Ensure(true);
             GreyboxTowerSetup.RebuildFloorTemplates();
         }
 
         // ---- Player prefab -------------------------------------------------------------------
+
+        static void RebuildPlayerPrefabIfOwned()
+        {
+            if (GeneratedAssetGuard.MayOverwrite(PlayerPrefabPath))
+                BuildPlayerPrefab();
+        }
 
         static NetworkObject EnsurePlayerPrefab()
         {
@@ -156,6 +163,7 @@ namespace CloseTheDeal.Editor.Greybox
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             Object.DestroyImmediate(root);
+            GeneratedAssetGuard.MarkGenerated(prefab);
             Debug.Log("[Greybox] Wrote " + PlayerPrefabPath);
             return prefab.GetComponent<NetworkObject>();
         }
@@ -309,7 +317,8 @@ namespace CloseTheDeal.Editor.Greybox
         /// FishNet wires up only the transport set when it starts, so Steam and local mode both
         /// live inside a Multipass from the start: index 0 Steam, index 1 direct on this PC.
         /// SteamLobby picks one per session. Server actions are per transport, never global,
-        /// so the Steam server is never started when Steam is not running.
+        /// so the Steam server is never started when Steam is not running. Wired up only when
+        /// first added; an existing Multipass is someone's setup and is left as it is.
         /// </summary>
         static void EnsureMultipass(GameObject managerObject)
         {
@@ -322,9 +331,10 @@ namespace CloseTheDeal.Editor.Greybox
                 local = managerObject.AddComponent<FishNet.Transporting.Tugboat.Tugboat>();
 
             var multipass = managerObject.GetComponent<Multipass>();
-            if (multipass == null)
-                multipass = managerObject.AddComponent<Multipass>();
+            if (multipass != null)
+                return;
 
+            multipass = managerObject.AddComponent<Multipass>();
             multipass.GlobalServerActions = false;
             var serialized = new SerializedObject(multipass);
             SerializedProperty transports = Find(serialized, "_transports");
@@ -342,7 +352,7 @@ namespace CloseTheDeal.Editor.Greybox
             serializedManager.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        /// <summary>Our team-aware spawner replaces FishNet's PlayerSpawner; the prefab is always re-pointed so a rebuilt one is picked up.</summary>
+        /// <summary>Our team-aware spawner replaces FishNet's PlayerSpawner. It only gets the player prefab when it has none; a rebuilt Player.prefab keeps its GUID, so the reference survives rebuilds.</summary>
         static void EnsureTeamSpawner(GameObject managerObject, NetworkObject playerPrefab, Transform spawnA, Transform spawnB)
         {
             PlayerSpawner old = managerObject.GetComponent<PlayerSpawner>();
@@ -356,16 +366,22 @@ namespace CloseTheDeal.Editor.Greybox
                 spawner.FallbackSpawns = new[] { spawnA, spawnB };
             }
 
-            spawner.SetPlayerPrefab(playerPrefab);
+            if (spawner.PlayerPrefab == null)
+                spawner.SetPlayerPrefab(playerPrefab);
         }
 
-        /// <summary>FishNet must drive physics itself for rigidbody prediction; 60 ticks a second.</summary>
+        /// <summary>FishNet must drive physics itself for rigidbody prediction; 60 ticks a second. Set only when first added; an existing one is warned about, never retuned.</summary>
         static void EnsureTimeManager(GameObject managerObject)
         {
             TimeManager timeManager = managerObject.GetComponent<TimeManager>();
-            if (timeManager == null)
-                timeManager = managerObject.AddComponent<TimeManager>();
+            if (timeManager != null)
+            {
+                if (timeManager.PhysicsMode != PhysicsMode.TimeManager)
+                    Debug.LogWarning("[Greybox] The TimeManager's physics mode isn't TimeManager. Player prediction needs it; set it back in the Inspector unless that was deliberate.");
+                return;
+            }
 
+            timeManager = managerObject.AddComponent<TimeManager>();
             var serialized = new SerializedObject(timeManager);
             SetEnum(serialized, "_physicsMode", (int)PhysicsMode.TimeManager);
             SetInt(serialized, "_tickRate", TickRate);

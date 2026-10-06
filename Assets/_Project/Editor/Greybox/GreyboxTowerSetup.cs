@@ -13,7 +13,9 @@ namespace CloseTheDeal.Editor.Greybox
     /// and the tower profile, and places the Tower object in the scene. Templates follow the
     /// shell in docs/systems/TOWER.md and read their dimensions from the tower profile, so
     /// change the profile and rebuild rather than editing the prefabs. "Rebuild Floor
-    /// Templates" is the one deliberate overwrite.
+    /// Templates" is the one deliberate overwrite, and only of files the tool still owns:
+    /// a floor someone has edited is left alone (GeneratedAssetGuard). The tower profile is
+    /// the designer's: the tool only fills a template slot that is empty.
     /// </summary>
     public static class GreyboxTowerSetup
     {
@@ -55,6 +57,8 @@ namespace CloseTheDeal.Editor.Greybox
         };
 
         const int SpawnsPerLobby = 4;
+        const int GeneratedOffices = 3;
+        static readonly string[] StillGroups = { "Shell", "Stairs", "Contents" };
 
         [MenuItem("Close the Deal/Greybox/Rebuild Floor Templates")]
         public static void RebuildFloorTemplates()
@@ -112,28 +116,31 @@ namespace CloseTheDeal.Editor.Greybox
             };
 
             var serialized = new SerializedObject(profile);
-            AssignIfBuilt(serialized, "Lobby", BuildTemplate(profile, "Lobby", FloorKind.Lobby, 0, overwrite, props, kit));
-            AssignIfBuilt(serialized, "Checkpoint", BuildTemplate(profile, "Checkpoint", FloorKind.Checkpoint, 0, overwrite, props, kit));
-            AssignIfBuilt(serialized, "Boardroom", BuildTemplate(profile, "Boardroom", FloorKind.Boardroom, 0, overwrite, props, kit));
-            AssignIfBuilt(serialized, "Roof", BuildTemplate(profile, "Roof", FloorKind.Roof, 0, overwrite, props, kit));
+            AssignIfEmpty(serialized.FindProperty("Lobby"), BuildTemplate(profile, "Lobby", FloorKind.Lobby, 0, overwrite, props, kit));
+            AssignIfEmpty(serialized.FindProperty("Checkpoint"), BuildTemplate(profile, "Checkpoint", FloorKind.Checkpoint, 0, overwrite, props, kit));
+            AssignIfEmpty(serialized.FindProperty("Boardroom"), BuildTemplate(profile, "Boardroom", FloorKind.Boardroom, 0, overwrite, props, kit));
+            AssignIfEmpty(serialized.FindProperty("Roof"), BuildTemplate(profile, "Roof", FloorKind.Roof, 0, overwrite, props, kit));
 
+            // A designer's office list is never shortened or reordered; the generated offices
+            // only fill it when it is empty, or fill slots that have been left empty.
             SerializedProperty offices = serialized.FindProperty("Offices");
-            offices.arraySize = 3;
-            for (int i = 0; i < 3; i++)
+            if (offices.arraySize == 0)
+                offices.arraySize = GeneratedOffices;
+            for (int i = 0; i < GeneratedOffices; i++)
             {
                 FloorTemplate office = BuildTemplate(profile, $"Office{(char)('A' + i)}", FloorKind.Office, i, overwrite, props, kit);
-                if (office != null)
-                    offices.GetArrayElementAtIndex(i).objectReferenceValue = office;
+                if (i < offices.arraySize)
+                    AssignIfEmpty(offices.GetArrayElementAtIndex(i), office);
             }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.SaveAssets();
         }
 
-        static void AssignIfBuilt(SerializedObject profile, string field, FloorTemplate template)
+        static void AssignIfEmpty(SerializedProperty slot, FloorTemplate template)
         {
-            if (template != null)
-                profile.FindProperty(field).objectReferenceValue = template;
+            if (template != null && slot.objectReferenceValue == null)
+                slot.objectReferenceValue = template;
         }
 
         /// <summary>Writes one floor prefab. Saving over an existing path keeps its GUID.</summary>
@@ -141,7 +148,7 @@ namespace CloseTheDeal.Editor.Greybox
         {
             string path = $"{FloorFolder}/Floor_{name}.prefab";
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (existing != null && !overwrite)
+            if (existing != null && (!overwrite || !GeneratedAssetGuard.MayOverwrite(path)))
                 return existing.GetComponent<FloorTemplate>();
 
             var root = new GameObject("Floor_" + name);
@@ -153,11 +160,27 @@ namespace CloseTheDeal.Editor.Greybox
             BuildContents(root.transform, profile, kind, variant, props);
             if (kind == FloorKind.Lobby)
                 template.SpawnPoints = BuildSpawns(root.transform, profile);
+            template.NeverMoves = StillParts(root.transform);
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
+            GeneratedAssetGuard.MarkGenerated(prefab);
             Debug.Log("[Tower] Wrote " + path);
             return prefab.GetComponent<FloorTemplate>();
+        }
+
+        /// <summary>Everything the tool builds into a floor stands still, so all of it is batched. Loose furniture and the door are spawned separately.</summary>
+        static Transform[] StillParts(Transform floor)
+        {
+            var groups = new List<Transform>();
+            foreach (string name in StillGroups)
+            {
+                Transform group = floor.Find(name);
+                if (group != null)
+                    groups.Add(group);
+            }
+
+            return groups.ToArray();
         }
 
         // ---- Shell ---------------------------------------------------------------------------
@@ -350,7 +373,7 @@ namespace CloseTheDeal.Editor.Greybox
         static Mesh EnsureFlightMesh(TowerProfile p, bool overwrite)
         {
             var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(FlightMeshPath);
-            if (mesh != null && !overwrite)
+            if (mesh != null && (!overwrite || !GeneratedAssetGuard.MayOverwrite(FlightMeshPath)))
                 return mesh;
 
             bool created = mesh == null;
@@ -363,6 +386,7 @@ namespace CloseTheDeal.Editor.Greybox
             else
                 EditorUtility.SetDirty(mesh);
 
+            GeneratedAssetGuard.MarkGenerated(mesh);
             Debug.Log("[Tower] Wrote " + FlightMeshPath);
             return mesh;
         }
@@ -464,7 +488,7 @@ namespace CloseTheDeal.Editor.Greybox
         static NetworkObject EnsureDoorPrefab(TowerProfile p, bool overwrite)
         {
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(DoorPrefabPath);
-            if (existing != null && !overwrite)
+            if (existing != null && (!overwrite || !GeneratedAssetGuard.MayOverwrite(DoorPrefabPath)))
                 return existing.GetComponent<NetworkObject>();
 
             var size = new Vector3(StairRadius - ColumnRadius - 0.05f, p.FloorHeight - FlightThickness - 0.05f, 0.2f);
@@ -488,6 +512,7 @@ namespace CloseTheDeal.Editor.Greybox
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, DoorPrefabPath);
             Object.DestroyImmediate(root);
+            GeneratedAssetGuard.MarkGenerated(prefab);
             Debug.Log("[Tower] Wrote " + DoorPrefabPath);
             return prefab.GetComponent<NetworkObject>();
         }

@@ -32,6 +32,8 @@ namespace CloseTheDeal.Tower
         readonly List<FloorSpec> _layout = new();
         readonly Transform[][] _spawns = new Transform[TeamCount][];
         readonly GameObject[] _buildings = new GameObject[TeamCount];
+        readonly List<GameObject> _stillParts = new();
+        readonly List<MeshFilter> _meshes = new();
 
         bool _built;
         uint _builtSeed;
@@ -131,12 +133,29 @@ namespace CloseTheDeal.Tower
 
                 if (spec.Kind == FloorKind.Lobby)
                     _spawns[team] = floor.SpawnPoints;
+
+                CollectStillParts(floor);
             }
 
             // Floors are instantiated at runtime, so Unity's build-time static batching never
             // sees them: without this every box is its own draw call, again per shadow cascade.
-            // Loose furniture is spawned separately by the host and is not part of this.
-            StaticBatchingUtility.Combine(root);
+            // Only what each template lists as never moving is merged, since merging freezes it.
+            if (_stillParts.Count > 0)
+                StaticBatchingUtility.Combine(_stillParts.ToArray(), root);
+            _stillParts.Clear();
+        }
+
+        void CollectStillParts(FloorTemplate floor)
+        {
+            foreach (Transform part in floor.NeverMoves)
+            {
+                if (part == null)
+                    continue;
+
+                part.GetComponentsInChildren(true, _meshes);
+                foreach (MeshFilter mesh in _meshes)
+                    _stillParts.Add(mesh.gameObject);
+            }
         }
 
         FloorTemplate TemplateFor(FloorSpec spec)

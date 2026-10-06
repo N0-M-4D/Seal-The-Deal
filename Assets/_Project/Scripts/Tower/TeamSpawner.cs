@@ -27,6 +27,7 @@ namespace CloseTheDeal.Tower
         readonly int[] _spawnedPerTeam = new int[TowerBuilder.TeamCount];
         int _nextFallback;
 
+        public NetworkObject PlayerPrefab => _playerPrefab;
         public void SetPlayerPrefab(NetworkObject prefab) => _playerPrefab = prefab;
 
         void Awake()

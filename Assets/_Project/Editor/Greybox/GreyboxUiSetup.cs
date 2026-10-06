@@ -39,6 +39,13 @@ namespace CloseTheDeal.Editor.Greybox
         [MenuItem("Close the Deal/Greybox/Rebuild Game UI")]
         public static void RebuildGameUi()
         {
+            // Scene objects can't carry the generated-asset fingerprint, so ask instead. Batch runs (UI preview capture) skip the question.
+            if (!Application.isBatchMode && !EditorUtility.DisplayDialog(
+                    "Rebuild Game UI",
+                    "This deletes the game menu and HUD in Greybox.unity and builds them fresh from the tool. Any hand edits to them are lost.",
+                    "Rebuild", "Cancel"))
+                return;
+
             if (EditorSceneManager.GetActiveScene().path != ScenePath)
                 EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 

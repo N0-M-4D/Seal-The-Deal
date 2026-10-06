@@ -47,7 +47,7 @@ namespace CloseTheDeal.Editor.Greybox
         {
             string path = $"{Folder}/{name}.prefab";
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (existing != null && !overwrite)
+            if (existing != null && (!overwrite || !GeneratedAssetGuard.MayOverwrite(path)))
                 return existing.GetComponent<NetworkObject>();
 
             var root = new GameObject(name) { layer = GreyboxSceneSetup.PropLayer };
@@ -85,6 +85,7 @@ namespace CloseTheDeal.Editor.Greybox
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
+            GeneratedAssetGuard.MarkGenerated(prefab);
             Debug.Log("[Props] Wrote " + path);
             return prefab.GetComponent<NetworkObject>();
         }

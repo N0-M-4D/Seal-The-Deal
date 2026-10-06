@@ -1,5 +1,7 @@
 fileFormatVersion: 2
 guid: 8b3cb556d9fd4664abb5c9d84b0b5916
+labels:
+- greybox-d5bfb2767fe5
 PrefabImporter:
   externalObjects: {}
   userData: 

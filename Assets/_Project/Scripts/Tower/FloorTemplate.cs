@@ -23,5 +23,8 @@ namespace CloseTheDeal.Tower
 
         [Tooltip("Where players of this tower's team appear. Only read on the lobby; one per player slot, reused round-robin if there are fewer.")]
         public Transform[] SpawnPoints = new Transform[0];
+
+        [Tooltip("Parts of this floor that never move, light up or animate: walls, slabs, fixed furniture. Everything under them is merged into a few big meshes when the tower is built, which draws much faster but freezes them in place. Leave anything that moves out of these, or it will stop. Empty = nothing merged.")]
+        public Transform[] NeverMoves = new Transform[0];
     }
 }
